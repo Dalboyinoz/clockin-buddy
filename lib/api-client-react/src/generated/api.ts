@@ -17,16 +17,17 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
-  CreateTimeEntryBody,
-  GetActiveEntry200,
+  CreateLocationEventBody,
+  GetHistorySummary200,
+  GetHistorySummaryParams,
   GetWorkLocation200,
   HealthStatus,
-  ListTimeEntries200,
-  ListTimeEntriesParams,
+  ListLocationEvents200,
+  ListLocationEventsParams,
+  LocationEvent,
   SetWorkLocationBody,
-  TimeEntry,
+  TodayEventsResponse,
   Totals,
-  UpdateTimeEntryBody,
   WeeklySummary,
   WorkLocation,
 } from "./api.schemas";
@@ -41,7 +42,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -117,9 +117,9 @@ export function useHealthCheck<
 }
 
 /**
- * @summary List all time entries
+ * @summary List location events, optionally filtered by date (YYYY-MM-DD)
  */
-export const getListTimeEntriesUrl = (params?: ListTimeEntriesParams) => {
+export const getListLocationEventsUrl = (params?: ListLocationEventsParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -131,32 +131,34 @@ export const getListTimeEntriesUrl = (params?: ListTimeEntriesParams) => {
   const stringifiedParams = normalizedParams.toString();
 
   return stringifiedParams.length > 0
-    ? `/api/time-entries?${stringifiedParams}`
-    : `/api/time-entries`;
+    ? `/api/location-events?${stringifiedParams}`
+    : `/api/location-events`;
 };
 
-export const listTimeEntries = async (
-  params?: ListTimeEntriesParams,
+export const listLocationEvents = async (
+  params?: ListLocationEventsParams,
   options?: RequestInit,
-): Promise<ListTimeEntries200> => {
-  return customFetch<ListTimeEntries200>(getListTimeEntriesUrl(params), {
+): Promise<ListLocationEvents200> => {
+  return customFetch<ListLocationEvents200>(getListLocationEventsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListTimeEntriesQueryKey = (params?: ListTimeEntriesParams) => {
-  return [`/api/time-entries`, ...(params ? [params] : [])] as const;
+export const getListLocationEventsQueryKey = (
+  params?: ListLocationEventsParams,
+) => {
+  return [`/api/location-events`, ...(params ? [params] : [])] as const;
 };
 
-export const getListTimeEntriesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listTimeEntries>>,
+export const getListLocationEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLocationEvents>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListTimeEntriesParams,
+  params?: ListLocationEventsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listTimeEntries>>,
+      Awaited<ReturnType<typeof listLocationEvents>>,
       TError,
       TData
     >;
@@ -165,43 +167,44 @@ export const getListTimeEntriesQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListTimeEntriesQueryKey(params);
+  const queryKey =
+    queryOptions?.queryKey ?? getListLocationEventsQueryKey(params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTimeEntries>>> = ({
-    signal,
-  }) => listTimeEntries(params, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLocationEvents>>
+  > = ({ signal }) => listLocationEvents(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof listTimeEntries>>,
+    Awaited<ReturnType<typeof listLocationEvents>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type ListTimeEntriesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listTimeEntries>>
+export type ListLocationEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLocationEvents>>
 >;
-export type ListTimeEntriesQueryError = ErrorType<unknown>;
+export type ListLocationEventsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List all time entries
+ * @summary List location events, optionally filtered by date (YYYY-MM-DD)
  */
 
-export function useListTimeEntries<
-  TData = Awaited<ReturnType<typeof listTimeEntries>>,
+export function useListLocationEvents<
+  TData = Awaited<ReturnType<typeof listLocationEvents>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListTimeEntriesParams,
+  params?: ListLocationEventsParams,
   options?: {
     query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listTimeEntries>>,
+      Awaited<ReturnType<typeof listLocationEvents>>,
       TError,
       TData
     >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListTimeEntriesQueryOptions(params, options);
+  const queryOptions = getListLocationEventsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -211,42 +214,42 @@ export function useListTimeEntries<
 }
 
 /**
- * @summary Create a new time entry (clock in)
+ * @summary Record an arrival or departure event
  */
-export const getCreateTimeEntryUrl = () => {
-  return `/api/time-entries`;
+export const getCreateLocationEventUrl = () => {
+  return `/api/location-events`;
 };
 
-export const createTimeEntry = async (
-  createTimeEntryBody: CreateTimeEntryBody,
+export const createLocationEvent = async (
+  createLocationEventBody: CreateLocationEventBody,
   options?: RequestInit,
-): Promise<TimeEntry> => {
-  return customFetch<TimeEntry>(getCreateTimeEntryUrl(), {
+): Promise<LocationEvent> => {
+  return customFetch<LocationEvent>(getCreateLocationEventUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createTimeEntryBody),
+    body: JSON.stringify(createLocationEventBody),
   });
 };
 
-export const getCreateTimeEntryMutationOptions = <
+export const getCreateLocationEventMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createTimeEntry>>,
+    Awaited<ReturnType<typeof createLocationEvent>>,
     TError,
-    { data: BodyType<CreateTimeEntryBody> },
+    { data: BodyType<CreateLocationEventBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof createTimeEntry>>,
+  Awaited<ReturnType<typeof createLocationEvent>>,
   TError,
-  { data: BodyType<CreateTimeEntryBody> },
+  { data: BodyType<CreateLocationEventBody> },
   TContext
 > => {
-  const mutationKey = ["createTimeEntry"];
+  const mutationKey = ["createLocationEvent"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -256,255 +259,81 @@ export const getCreateTimeEntryMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createTimeEntry>>,
-    { data: BodyType<CreateTimeEntryBody> }
+    Awaited<ReturnType<typeof createLocationEvent>>,
+    { data: BodyType<CreateLocationEventBody> }
   > = (props) => {
     const { data } = props ?? {};
 
-    return createTimeEntry(data, requestOptions);
+    return createLocationEvent(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type CreateTimeEntryMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createTimeEntry>>
+export type CreateLocationEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLocationEvent>>
 >;
-export type CreateTimeEntryMutationBody = BodyType<CreateTimeEntryBody>;
-export type CreateTimeEntryMutationError = ErrorType<unknown>;
+export type CreateLocationEventMutationBody = BodyType<CreateLocationEventBody>;
+export type CreateLocationEventMutationError = ErrorType<unknown>;
 
 /**
- * @summary Create a new time entry (clock in)
+ * @summary Record an arrival or departure event
  */
-export const useCreateTimeEntry = <
+export const useCreateLocationEvent = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createTimeEntry>>,
+    Awaited<ReturnType<typeof createLocationEvent>>,
     TError,
-    { data: BodyType<CreateTimeEntryBody> },
+    { data: BodyType<CreateLocationEventBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof createTimeEntry>>,
+  Awaited<ReturnType<typeof createLocationEvent>>,
   TError,
-  { data: BodyType<CreateTimeEntryBody> },
+  { data: BodyType<CreateLocationEventBody> },
   TContext
 > => {
-  return useMutation(getCreateTimeEntryMutationOptions(options));
+  return useMutation(getCreateLocationEventMutationOptions(options));
 };
 
 /**
- * @summary Get a time entry
+ * @summary Delete a location event
  */
-export const getGetTimeEntryUrl = (id: number) => {
-  return `/api/time-entries/${id}`;
+export const getDeleteLocationEventUrl = (id: number) => {
+  return `/api/location-events/${id}`;
 };
 
-export const getTimeEntry = async (
-  id: number,
-  options?: RequestInit,
-): Promise<TimeEntry> => {
-  return customFetch<TimeEntry>(getGetTimeEntryUrl(id), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetTimeEntryQueryKey = (id: number) => {
-  return [`/api/time-entries/${id}`] as const;
-};
-
-export const getGetTimeEntryQueryOptions = <
-  TData = Awaited<ReturnType<typeof getTimeEntry>>,
-  TError = ErrorType<void>,
->(
-  id: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getTimeEntry>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetTimeEntryQueryKey(id);
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTimeEntry>>> = ({
-    signal,
-  }) => getTimeEntry(id, { signal, ...requestOptions });
-
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!id,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getTimeEntry>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetTimeEntryQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getTimeEntry>>
->;
-export type GetTimeEntryQueryError = ErrorType<void>;
-
-/**
- * @summary Get a time entry
- */
-
-export function useGetTimeEntry<
-  TData = Awaited<ReturnType<typeof getTimeEntry>>,
-  TError = ErrorType<void>,
->(
-  id: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getTimeEntry>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetTimeEntryQueryOptions(id, options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Update a time entry (clock out)
- */
-export const getUpdateTimeEntryUrl = (id: number) => {
-  return `/api/time-entries/${id}`;
-};
-
-export const updateTimeEntry = async (
-  id: number,
-  updateTimeEntryBody: UpdateTimeEntryBody,
-  options?: RequestInit,
-): Promise<TimeEntry> => {
-  return customFetch<TimeEntry>(getUpdateTimeEntryUrl(id), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(updateTimeEntryBody),
-  });
-};
-
-export const getUpdateTimeEntryMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateTimeEntry>>,
-    TError,
-    { id: number; data: BodyType<UpdateTimeEntryBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof updateTimeEntry>>,
-  TError,
-  { id: number; data: BodyType<UpdateTimeEntryBody> },
-  TContext
-> => {
-  const mutationKey = ["updateTimeEntry"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updateTimeEntry>>,
-    { id: number; data: BodyType<UpdateTimeEntryBody> }
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return updateTimeEntry(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UpdateTimeEntryMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updateTimeEntry>>
->;
-export type UpdateTimeEntryMutationBody = BodyType<UpdateTimeEntryBody>;
-export type UpdateTimeEntryMutationError = ErrorType<unknown>;
-
-/**
- * @summary Update a time entry (clock out)
- */
-export const useUpdateTimeEntry = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateTimeEntry>>,
-    TError,
-    { id: number; data: BodyType<UpdateTimeEntryBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof updateTimeEntry>>,
-  TError,
-  { id: number; data: BodyType<UpdateTimeEntryBody> },
-  TContext
-> => {
-  return useMutation(getUpdateTimeEntryMutationOptions(options));
-};
-
-/**
- * @summary Delete a time entry
- */
-export const getDeleteTimeEntryUrl = (id: number) => {
-  return `/api/time-entries/${id}`;
-};
-
-export const deleteTimeEntry = async (
+export const deleteLocationEvent = async (
   id: number,
   options?: RequestInit,
 ): Promise<void> => {
-  return customFetch<void>(getDeleteTimeEntryUrl(id), {
+  return customFetch<void>(getDeleteLocationEventUrl(id), {
     ...options,
     method: "DELETE",
   });
 };
 
-export const getDeleteTimeEntryMutationOptions = <
+export const getDeleteLocationEventMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteTimeEntry>>,
+    Awaited<ReturnType<typeof deleteLocationEvent>>,
     TError,
     { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof deleteTimeEntry>>,
+  Awaited<ReturnType<typeof deleteLocationEvent>>,
   TError,
   { id: number },
   TContext
 > => {
-  const mutationKey = ["deleteTimeEntry"];
+  const mutationKey = ["deleteLocationEvent"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -514,72 +343,72 @@ export const getDeleteTimeEntryMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof deleteTimeEntry>>,
+    Awaited<ReturnType<typeof deleteLocationEvent>>,
     { id: number }
   > = (props) => {
     const { id } = props ?? {};
 
-    return deleteTimeEntry(id, requestOptions);
+    return deleteLocationEvent(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type DeleteTimeEntryMutationResult = NonNullable<
-  Awaited<ReturnType<typeof deleteTimeEntry>>
+export type DeleteLocationEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteLocationEvent>>
 >;
 
-export type DeleteTimeEntryMutationError = ErrorType<unknown>;
+export type DeleteLocationEventMutationError = ErrorType<unknown>;
 
 /**
- * @summary Delete a time entry
+ * @summary Delete a location event
  */
-export const useDeleteTimeEntry = <
+export const useDeleteLocationEvent = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteTimeEntry>>,
+    Awaited<ReturnType<typeof deleteLocationEvent>>,
     TError,
     { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof deleteTimeEntry>>,
+  Awaited<ReturnType<typeof deleteLocationEvent>>,
   TError,
   { id: number },
   TContext
 > => {
-  return useMutation(getDeleteTimeEntryMutationOptions(options));
+  return useMutation(getDeleteLocationEventMutationOptions(options));
 };
 
 /**
- * @summary Get the currently active (clocked-in) time entry
+ * @summary Get today's events and computed daily total
  */
-export const getGetActiveEntryUrl = () => {
-  return `/api/time-entries/active`;
+export const getGetTodayEventsUrl = () => {
+  return `/api/location-events/today`;
 };
 
-export const getActiveEntry = async (
+export const getTodayEvents = async (
   options?: RequestInit,
-): Promise<GetActiveEntry200> => {
-  return customFetch<GetActiveEntry200>(getGetActiveEntryUrl(), {
+): Promise<TodayEventsResponse> => {
+  return customFetch<TodayEventsResponse>(getGetTodayEventsUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetActiveEntryQueryKey = () => {
-  return [`/api/time-entries/active`] as const;
+export const getGetTodayEventsQueryKey = () => {
+  return [`/api/location-events/today`] as const;
 };
 
-export const getGetActiveEntryQueryOptions = <
-  TData = Awaited<ReturnType<typeof getActiveEntry>>,
+export const getGetTodayEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTodayEvents>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getActiveEntry>>,
+    Awaited<ReturnType<typeof getTodayEvents>>,
     TError,
     TData
   >;
@@ -587,40 +416,40 @@ export const getGetActiveEntryQueryOptions = <
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetActiveEntryQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetTodayEventsQueryKey();
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getActiveEntry>>> = ({
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTodayEvents>>> = ({
     signal,
-  }) => getActiveEntry({ signal, ...requestOptions });
+  }) => getTodayEvents({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getActiveEntry>>,
+    Awaited<ReturnType<typeof getTodayEvents>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type GetActiveEntryQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getActiveEntry>>
+export type GetTodayEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTodayEvents>>
 >;
-export type GetActiveEntryQueryError = ErrorType<unknown>;
+export type GetTodayEventsQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get the currently active (clocked-in) time entry
+ * @summary Get today's events and computed daily total
  */
 
-export function useGetActiveEntry<
-  TData = Awaited<ReturnType<typeof getActiveEntry>>,
+export function useGetTodayEvents<
+  TData = Awaited<ReturnType<typeof getTodayEvents>>,
   TError = ErrorType<unknown>,
 >(options?: {
   query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getActiveEntry>>,
+    Awaited<ReturnType<typeof getTodayEvents>>,
     TError,
     TData
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetActiveEntryQueryOptions(options);
+  const queryOptions = getGetTodayEventsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -630,7 +459,7 @@ export function useGetActiveEntry<
 }
 
 /**
- * @summary Get current week summary
+ * @summary Get current week summary (first arrival to last departure per day)
  */
 export const getGetWeeklySummaryUrl = () => {
   return `/api/summary/week`;
@@ -681,7 +510,7 @@ export type GetWeeklySummaryQueryResult = NonNullable<
 export type GetWeeklySummaryQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get current week summary
+ * @summary Get current week summary (first arrival to last departure per day)
  */
 
 export function useGetWeeklySummary<
@@ -705,7 +534,7 @@ export function useGetWeeklySummary<
 }
 
 /**
- * @summary Get total hours worked
+ * @summary Get all-time totals
  */
 export const getGetTotalsUrl = () => {
   return `/api/summary/totals`;
@@ -750,7 +579,7 @@ export type GetTotalsQueryResult = NonNullable<
 export type GetTotalsQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get total hours worked
+ * @summary Get all-time totals
  */
 
 export function useGetTotals<
@@ -761,6 +590,103 @@ export function useGetTotals<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetTotalsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get per-day history with first arrival, last departure, total minutes
+ */
+export const getGetHistorySummaryUrl = (params?: GetHistorySummaryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/summary/history?${stringifiedParams}`
+    : `/api/summary/history`;
+};
+
+export const getHistorySummary = async (
+  params?: GetHistorySummaryParams,
+  options?: RequestInit,
+): Promise<GetHistorySummary200> => {
+  return customFetch<GetHistorySummary200>(getGetHistorySummaryUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetHistorySummaryQueryKey = (
+  params?: GetHistorySummaryParams,
+) => {
+  return [`/api/summary/history`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetHistorySummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getHistorySummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetHistorySummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHistorySummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetHistorySummaryQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getHistorySummary>>
+  > = ({ signal }) => getHistorySummary(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getHistorySummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetHistorySummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getHistorySummary>>
+>;
+export type GetHistorySummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get per-day history with first arrival, last departure, total minutes
+ */
+
+export function useGetHistorySummary<
+  TData = Awaited<ReturnType<typeof getHistorySummary>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetHistorySummaryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getHistorySummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetHistorySummaryQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

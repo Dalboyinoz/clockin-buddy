@@ -1,88 +1,145 @@
 import { Router, type IRouter } from "express";
-import { db, timeEntriesTable } from "@workspace/db";
-import { sql, gte, lte, and, isNotNull } from "drizzle-orm";
+import { db, locationEventsTable } from "@workspace/db";
+import { gte, lte, and, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/summary/week", async (req, res): Promise<void> => {
+function weekBounds() {
   const now = new Date();
   const dayOfWeek = now.getDay();
-  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  const weekStart = new Date(now.setDate(diff));
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
-
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
+  return { weekStart, weekEnd };
+}
 
-  const entries = await db
+function computeDayMinutes(events: { type: string; timestamp: Date }[]): number | null {
+  const sorted = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  const arrivals = sorted.filter(e => e.type === "arrival");
+  const departures = sorted.filter(e => e.type === "departure");
+  if (!arrivals.length || !departures.length) return null;
+  const first = arrivals[0].timestamp;
+  const last = departures[departures.length - 1].timestamp;
+  if (last <= first) return null;
+  return (last.getTime() - first.getTime()) / 60000;
+}
+
+router.get("/summary/week", async (req, res): Promise<void> => {
+  const { weekStart, weekEnd } = weekBounds();
+
+  const events = await db
     .select()
-    .from(timeEntriesTable)
+    .from(locationEventsTable)
     .where(
       and(
-        gte(timeEntriesTable.clockIn, weekStart),
-        lte(timeEntriesTable.clockIn, weekEnd),
-        isNotNull(timeEntriesTable.durationMinutes),
+        gte(locationEventsTable.timestamp, weekStart),
+        lte(locationEventsTable.timestamp, weekEnd)
       )
-    );
+    )
+    .orderBy(locationEventsTable.timestamp);
 
-  let totalMinutes = 0;
-  const dailyMap: Record<string, { totalMinutes: number; entries: number }> = {};
-
-  for (const entry of entries) {
-    const dateKey = entry.clockIn.toISOString().split("T")[0];
-    const mins = entry.durationMinutes ?? 0;
-    totalMinutes += mins;
-    if (!dailyMap[dateKey]) {
-      dailyMap[dateKey] = { totalMinutes: 0, entries: 0 };
-    }
-    dailyMap[dateKey].totalMinutes += mins;
-    dailyMap[dateKey].entries += 1;
+  const dailyMap: Record<string, typeof events> = {};
+  for (const event of events) {
+    const dateKey = event.timestamp.toISOString().split("T")[0];
+    if (!dailyMap[dateKey]) dailyMap[dateKey] = [];
+    dailyMap[dateKey].push(event);
   }
 
-  const dailyBreakdown = Object.entries(dailyMap).map(([date, data]) => ({
-    date,
-    totalMinutes: data.totalMinutes,
-    entries: data.entries,
-  })).sort((a, b) => a.date.localeCompare(b.date));
+  let totalMinutes = 0;
+  const dailyBreakdown = Object.entries(dailyMap).map(([date, dayEvents]) => {
+    const mins = computeDayMinutes(dayEvents) ?? 0;
+    totalMinutes += mins;
+    return { date, totalMinutes: mins, entries: dayEvents.length };
+  }).sort((a, b) => a.date.localeCompare(b.date));
 
   res.json({
     weekStart: weekStart.toISOString(),
     weekEnd: weekEnd.toISOString(),
     totalMinutes,
     totalHours: Math.round((totalMinutes / 60) * 100) / 100,
-    daysWorked: Object.keys(dailyMap).length,
+    daysWorked: dailyBreakdown.filter(d => d.totalMinutes > 0).length,
     dailyBreakdown,
   });
 });
 
 router.get("/summary/totals", async (req, res): Promise<void> => {
-  const entries = await db
+  const events = await db
     .select()
-    .from(timeEntriesTable)
-    .where(isNotNull(timeEntriesTable.durationMinutes));
+    .from(locationEventsTable)
+    .orderBy(locationEventsTable.timestamp);
 
-  let totalMinutes = 0;
-  const uniqueDays = new Set<string>();
-
-  for (const entry of entries) {
-    totalMinutes += entry.durationMinutes ?? 0;
-    uniqueDays.add(entry.clockIn.toISOString().split("T")[0]);
+  const dailyMap: Record<string, typeof events> = {};
+  for (const event of events) {
+    const dateKey = event.timestamp.toISOString().split("T")[0];
+    if (!dailyMap[dateKey]) dailyMap[dateKey] = [];
+    dailyMap[dateKey].push(event);
   }
 
-  const totalDays = uniqueDays.size;
-  const totalEntries = entries.length;
-  const averageHoursPerDay = totalDays > 0
-    ? Math.round((totalMinutes / 60 / totalDays) * 100) / 100
-    : 0;
+  let totalMinutes = 0;
+  let totalDays = 0;
+  let totalEntries = 0;
+
+  for (const [, dayEvents] of Object.entries(dailyMap)) {
+    const mins = computeDayMinutes(dayEvents);
+    if (mins !== null && mins > 0) {
+      totalMinutes += mins;
+      totalDays += 1;
+    }
+    totalEntries += dayEvents.length;
+  }
 
   res.json({
     totalMinutes,
     totalHours: Math.round((totalMinutes / 60) * 100) / 100,
     totalDays,
     totalEntries,
-    averageHoursPerDay,
+    averageHoursPerDay: totalDays > 0
+      ? Math.round((totalMinutes / 60 / totalDays) * 100) / 100
+      : 0,
   });
+});
+
+router.get("/summary/history", async (req, res): Promise<void> => {
+  const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : 30;
+  const limit = isNaN(rawLimit) ? 30 : rawLimit;
+
+  const events = await db
+    .select()
+    .from(locationEventsTable)
+    .orderBy(desc(locationEventsTable.timestamp))
+    .limit(limit * 10);
+
+  const dailyMap: Record<string, typeof events> = {};
+  for (const event of events) {
+    const dateKey = event.timestamp.toISOString().split("T")[0];
+    if (!dailyMap[dateKey]) dailyMap[dateKey] = [];
+    dailyMap[dateKey].push(event);
+  }
+
+  const days = Object.entries(dailyMap)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, limit)
+    .map(([date, dayEvents]) => {
+      const sorted = [...dayEvents].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      const arrivals = sorted.filter(e => e.type === "arrival");
+      const departures = sorted.filter(e => e.type === "departure");
+      const firstArrival = arrivals[0]?.timestamp ?? null;
+      const lastDeparture = departures[departures.length - 1]?.timestamp ?? null;
+      const totalMinutes = computeDayMinutes(sorted);
+      return {
+        date,
+        firstArrival: firstArrival?.toISOString() ?? null,
+        lastDeparture: lastDeparture?.toISOString() ?? null,
+        totalMinutes,
+        events: sorted,
+      };
+    });
+
+  res.json({ days });
 });
 
 export default router;

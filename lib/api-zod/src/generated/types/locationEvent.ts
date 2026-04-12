@@ -5,13 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LocationEventType } from "./locationEventType";
 
-export interface TimeEntry {
+export interface LocationEvent {
   id: number;
-  clockIn: Date;
-  clockOut: Date | null;
-  durationMinutes: number | null;
-  notes: string | null;
+  type: LocationEventType;
+  timestamp: Date;
   latitude: number | null;
   longitude: number | null;
   createdAt: Date;

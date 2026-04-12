@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateTimeEntryBody {
-  clockOut?: Date;
-  notes?: string;
-  latitude?: number;
-  longitude?: number;
-}
+export type GetHistorySummaryParams = {
+  limit?: number;
+};

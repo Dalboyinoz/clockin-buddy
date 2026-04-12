@@ -5,8 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { TimeEntry } from "./timeEntry";
+import type { LocationEvent } from "./locationEvent";
 
-export type GetActiveEntry200 = {
-  entry: TimeEntry | null;
+export type ListLocationEvents200 = {
+  events: LocationEvent[];
 };

@@ -5,10 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DaySummary } from "./daySummary";
 
-export interface CreateTimeEntryBody {
-  clockIn: Date;
-  notes?: string;
-  latitude?: number;
-  longitude?: number;
-}
+export type GetHistorySummary200 = {
+  days: DaySummary[];
+};

@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,113 +15,67 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * @summary List all time entries
+ * @summary List location events, optionally filtered by date (YYYY-MM-DD)
  */
-export const listTimeEntriesQueryLimitDefault = 50;
-export const listTimeEntriesQueryOffsetDefault = 0;
+export const listLocationEventsQueryLimitDefault = 200;
 
-export const ListTimeEntriesQueryParams = zod.object({
-  limit: zod.coerce.number().default(listTimeEntriesQueryLimitDefault),
-  offset: zod.coerce.number().default(listTimeEntriesQueryOffsetDefault),
+export const ListLocationEventsQueryParams = zod.object({
+  date: zod.coerce.string().optional(),
+  limit: zod.coerce.number().default(listLocationEventsQueryLimitDefault),
 });
 
-export const ListTimeEntriesResponse = zod.object({
-  entries: zod.array(
+export const ListLocationEventsResponse = zod.object({
+  events: zod.array(
     zod.object({
       id: zod.number(),
-      clockIn: zod.coerce.date(),
-      clockOut: zod.coerce.date().nullable(),
-      durationMinutes: zod.number().nullable(),
-      notes: zod.string().nullable(),
+      type: zod.enum(["arrival", "departure"]),
+      timestamp: zod.coerce.date(),
       latitude: zod.number().nullable(),
       longitude: zod.number().nullable(),
       createdAt: zod.coerce.date(),
     }),
   ),
-  total: zod.number(),
 });
 
 /**
- * @summary Create a new time entry (clock in)
+ * @summary Record an arrival or departure event
  */
-export const CreateTimeEntryBody = zod.object({
-  clockIn: zod.coerce.date(),
-  notes: zod.string().optional(),
+export const CreateLocationEventBody = zod.object({
+  type: zod.enum(["arrival", "departure"]),
+  timestamp: zod.coerce.date(),
   latitude: zod.number().optional(),
   longitude: zod.number().optional(),
 });
 
 /**
- * @summary Get a time entry
+ * @summary Delete a location event
  */
-export const GetTimeEntryParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetTimeEntryResponse = zod.object({
-  id: zod.number(),
-  clockIn: zod.coerce.date(),
-  clockOut: zod.coerce.date().nullable(),
-  durationMinutes: zod.number().nullable(),
-  notes: zod.string().nullable(),
-  latitude: zod.number().nullable(),
-  longitude: zod.number().nullable(),
-  createdAt: zod.coerce.date(),
-});
-
-/**
- * @summary Update a time entry (clock out)
- */
-export const UpdateTimeEntryParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const UpdateTimeEntryBody = zod.object({
-  clockOut: zod.coerce.date().optional(),
-  notes: zod.string().optional(),
-  latitude: zod.number().optional(),
-  longitude: zod.number().optional(),
-});
-
-export const UpdateTimeEntryResponse = zod.object({
-  id: zod.number(),
-  clockIn: zod.coerce.date(),
-  clockOut: zod.coerce.date().nullable(),
-  durationMinutes: zod.number().nullable(),
-  notes: zod.string().nullable(),
-  latitude: zod.number().nullable(),
-  longitude: zod.number().nullable(),
-  createdAt: zod.coerce.date(),
-});
-
-/**
- * @summary Delete a time entry
- */
-export const DeleteTimeEntryParams = zod.object({
+export const DeleteLocationEventParams = zod.object({
   id: zod.coerce.number(),
 });
 
 /**
- * @summary Get the currently active (clocked-in) time entry
+ * @summary Get today's events and computed daily total
  */
-export const GetActiveEntryResponse = zod.object({
-  entry: zod.union([
+export const GetTodayEventsResponse = zod.object({
+  events: zod.array(
     zod.object({
       id: zod.number(),
-      clockIn: zod.coerce.date(),
-      clockOut: zod.coerce.date().nullable(),
-      durationMinutes: zod.number().nullable(),
-      notes: zod.string().nullable(),
+      type: zod.enum(["arrival", "departure"]),
+      timestamp: zod.coerce.date(),
       latitude: zod.number().nullable(),
       longitude: zod.number().nullable(),
       createdAt: zod.coerce.date(),
     }),
-    zod.null(),
-  ]),
+  ),
+  firstArrival: zod.coerce.date().nullable(),
+  lastDeparture: zod.coerce.date().nullable(),
+  totalMinutes: zod.number().nullable(),
+  currentlyAtWork: zod.boolean(),
 });
 
 /**
- * @summary Get current week summary
+ * @summary Get current week summary (first arrival to last departure per day)
  */
 export const GetWeeklySummaryResponse = zod.object({
   weekStart: zod.coerce.date(),
@@ -140,7 +93,7 @@ export const GetWeeklySummaryResponse = zod.object({
 });
 
 /**
- * @summary Get total hours worked
+ * @summary Get all-time totals
  */
 export const GetTotalsResponse = zod.object({
   totalMinutes: zod.number(),
@@ -148,6 +101,36 @@ export const GetTotalsResponse = zod.object({
   totalDays: zod.number(),
   totalEntries: zod.number(),
   averageHoursPerDay: zod.number(),
+});
+
+/**
+ * @summary Get per-day history with first arrival, last departure, total minutes
+ */
+export const getHistorySummaryQueryLimitDefault = 30;
+
+export const GetHistorySummaryQueryParams = zod.object({
+  limit: zod.coerce.number().default(getHistorySummaryQueryLimitDefault),
+});
+
+export const GetHistorySummaryResponse = zod.object({
+  days: zod.array(
+    zod.object({
+      date: zod.string(),
+      firstArrival: zod.coerce.date().nullable(),
+      lastDeparture: zod.coerce.date().nullable(),
+      totalMinutes: zod.number().nullable(),
+      events: zod.array(
+        zod.object({
+          id: zod.number(),
+          type: zod.enum(["arrival", "departure"]),
+          timestamp: zod.coerce.date(),
+          latitude: zod.number().nullable(),
+          longitude: zod.number().nullable(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
 });
 
 /**

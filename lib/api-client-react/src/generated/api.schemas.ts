@@ -9,29 +9,52 @@ export interface HealthStatus {
   status: string;
 }
 
-export interface TimeEntry {
+export type LocationEventType =
+  (typeof LocationEventType)[keyof typeof LocationEventType];
+
+export const LocationEventType = {
+  arrival: "arrival",
+  departure: "departure",
+} as const;
+
+export interface LocationEvent {
   id: number;
-  clockIn: string;
-  clockOut: string | null;
-  durationMinutes: number | null;
-  notes: string | null;
+  type: LocationEventType;
+  timestamp: string;
   latitude: number | null;
   longitude: number | null;
   createdAt: string;
 }
 
-export interface CreateTimeEntryBody {
-  clockIn: string;
-  notes?: string;
+export type CreateLocationEventBodyType =
+  (typeof CreateLocationEventBodyType)[keyof typeof CreateLocationEventBodyType];
+
+export const CreateLocationEventBodyType = {
+  arrival: "arrival",
+  departure: "departure",
+} as const;
+
+export interface CreateLocationEventBody {
+  type: CreateLocationEventBodyType;
+  timestamp: string;
   latitude?: number;
   longitude?: number;
 }
 
-export interface UpdateTimeEntryBody {
-  clockOut?: string;
-  notes?: string;
-  latitude?: number;
-  longitude?: number;
+export interface TodayEventsResponse {
+  events: LocationEvent[];
+  firstArrival: string | null;
+  lastDeparture: string | null;
+  totalMinutes: number | null;
+  currentlyAtWork: boolean;
+}
+
+export interface DaySummary {
+  date: string;
+  firstArrival: string | null;
+  lastDeparture: string | null;
+  totalMinutes: number | null;
+  events: LocationEvent[];
 }
 
 export type WeeklySummaryDailyBreakdownItem = {
@@ -73,18 +96,21 @@ export interface SetWorkLocationBody {
   radiusMeters: number;
 }
 
-export type ListTimeEntriesParams = {
+export type ListLocationEventsParams = {
+  date?: string;
   limit?: number;
-  offset?: number;
 };
 
-export type ListTimeEntries200 = {
-  entries: TimeEntry[];
-  total: number;
+export type ListLocationEvents200 = {
+  events: LocationEvent[];
 };
 
-export type GetActiveEntry200 = {
-  entry: TimeEntry | null;
+export type GetHistorySummaryParams = {
+  limit?: number;
+};
+
+export type GetHistorySummary200 = {
+  days: DaySummary[];
 };
 
 export type GetWorkLocation200 = {

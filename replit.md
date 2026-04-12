@@ -31,14 +31,23 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 ### Work Time Tracker (`artifacts/timesheet-tracker`)
 - React + Vite frontend at preview path `/`
 - Location-based timesheet tracking app called "ClockIn"
-- Pages: Dashboard (clock in/out), History, Summary (with CSV export), Location settings
-- Deep teal color scheme
+- **Auto-detection**: Uses watchPosition to continuously monitor GPS, auto-records arrivals/departures as geofence events
+- **Daily total**: First arrival to last departure each day (supports multiple trips)
+- Pages: Dashboard (live status), History (day-by-day events), Summary (weekly chart + CSV export), Location settings
 
 ### API Server (`artifacts/api-server`)
 - Express 5 backend at `/api`
-- Handles time entries, work location, and summary endpoints
+- Handles location events, work location, and summary endpoints
 
 ## Database Schema
 
-- `time_entries` — clock in/out records with duration, notes, GPS coords
+- `location_events` — individual arrival/departure events with timestamps and GPS coords
 - `work_locations` — saved workplace GPS location with geofence radius
+- `time_entries` — legacy manual clock in/out (no longer primary mechanism)
+
+## Tracking Logic
+
+- `location_events.type` is either 'arrival' or 'departure'
+- Daily total = last departure - first arrival for the day
+- Multiple visits per day are all captured; only endpoints matter for the daily total
+- Debounced: requires 2 consecutive outside readings before recording a departure

@@ -10,8 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
-  - name: timeEntries
-    description: Time entry operations
+  - name: locationEvents
+    description: Location event operations
   - name: workLocation
     description: Work location operations
   - name: summary
@@ -23,7 +23,6 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -32,102 +31,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /time-entries:
+  /location-events:
     get:
-      operationId: listTimeEntries
-      tags: [timeEntries]
-      summary: List all time entries
+      operationId: listLocationEvents
+      tags: [locationEvents]
+      summary: List location events, optionally filtered by date (YYYY-MM-DD)
       parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
         - name: limit
           in: query
           schema:
             type: integer
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
+            default: 200
       responses:
         "200":
-          description: List of time entries
+          description: List of location events
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  entries:
+                  events:
                     type: array
                     items:
-                      $ref: "#/components/schemas/TimeEntry"
-                  total:
-                    type: integer
-                required: [entries, total]
+                      $ref: "#/components/schemas/LocationEvent"
+                required: [events]
     post:
-      operationId: createTimeEntry
-      tags: [timeEntries]
-      summary: Create a new time entry (clock in)
+      operationId: createLocationEvent
+      tags: [locationEvents]
+      summary: Record an arrival or departure event
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateTimeEntryBody"
+              $ref: "#/components/schemas/CreateLocationEventBody"
       responses:
         "201":
           description: Created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TimeEntry"
+                $ref: "#/components/schemas/LocationEvent"
 
-  /time-entries/{id}:
-    get:
-      operationId: getTimeEntry
-      tags: [timeEntries]
-      summary: Get a time entry
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Time entry
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TimeEntry"
-        "404":
-          description: Not found
-    patch:
-      operationId: updateTimeEntry
-      tags: [timeEntries]
-      summary: Update a time entry (clock out)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateTimeEntryBody"
-      responses:
-        "200":
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TimeEntry"
+  /location-events/{id}:
     delete:
-      operationId: deleteTimeEntry
-      tags: [timeEntries]
-      summary: Delete a time entry
+      operationId: deleteLocationEvent
+      tags: [locationEvents]
+      summary: Delete a location event
       parameters:
         - name: id
           in: path
@@ -138,30 +92,24 @@ paths:
         "204":
           description: Deleted
 
-  /time-entries/active:
+  /location-events/today:
     get:
-      operationId: getActiveEntry
-      tags: [timeEntries]
-      summary: Get the currently active (clocked-in) time entry
+      operationId: getTodayEvents
+      tags: [locationEvents]
+      summary: Get today's events and computed daily total
       responses:
         "200":
-          description: Active entry or null
+          description: Today's summary
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  entry:
-                    oneOf:
-                      - $ref: "#/components/schemas/TimeEntry"
-                      - type: "null"
-                required: [entry]
+                $ref: "#/components/schemas/TodayEventsResponse"
 
   /summary/week:
     get:
       operationId: getWeeklySummary
       tags: [summary]
-      summary: Get current week summary
+      summary: Get current week summary (first arrival to last departure per day)
       responses:
         "200":
           description: Weekly summary
@@ -174,7 +122,7 @@ paths:
     get:
       operationId: getTotals
       tags: [summary]
-      summary: Get total hours worked
+      summary: Get all-time totals
       responses:
         "200":
           description: Totals
@@ -182,6 +130,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Totals"
+
+  /summary/history:
+    get:
+      operationId: getHistorySummary
+      tags: [summary]
+      summary: Get per-day history with first arrival, last departure, total minutes
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: History per day
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DaySummary"
+                required: [days]
 
   /work-location:
     get:
@@ -226,27 +199,19 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
-    TimeEntry:
+    LocationEvent:
       type: object
       properties:
         id:
           type: integer
-        clockIn:
+        type:
+          type: string
+          enum: [arrival, departure]
+        timestamp:
           type: string
           format: date-time
-        clockOut:
-          type: string
-          format: date-time
-          nullable: true
-        durationMinutes:
-          type: number
-          nullable: true
-        notes:
-          type: string
-          nullable: true
         latitude:
           type: number
           nullable: true
@@ -256,34 +221,66 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, clockIn, clockOut, durationMinutes, notes, latitude, longitude, createdAt]
+      required: [id, type, timestamp, latitude, longitude, createdAt]
 
-    CreateTimeEntryBody:
+    CreateLocationEventBody:
       type: object
       properties:
-        clockIn:
+        type:
+          type: string
+          enum: [arrival, departure]
+        timestamp:
           type: string
           format: date-time
-        notes:
-          type: string
         latitude:
           type: number
         longitude:
           type: number
-      required: [clockIn]
+      required: [type, timestamp]
 
-    UpdateTimeEntryBody:
+    TodayEventsResponse:
       type: object
       properties:
-        clockOut:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationEvent"
+        firstArrival:
           type: string
           format: date-time
-        notes:
+          nullable: true
+        lastDeparture:
           type: string
-        latitude:
+          format: date-time
+          nullable: true
+        totalMinutes:
           type: number
-        longitude:
+          nullable: true
+        currentlyAtWork:
+          type: boolean
+      required: [events, firstArrival, lastDeparture, totalMinutes, currentlyAtWork]
+
+    DaySummary:
+      type: object
+      properties:
+        date:
+          type: string
+        firstArrival:
+          type: string
+          format: date-time
+          nullable: true
+        lastDeparture:
+          type: string
+          format: date-time
+          nullable: true
+        totalMinutes:
           type: number
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationEvent"
+      required: [date, firstArrival, lastDeparture, totalMinutes, events]
 
     WeeklySummary:
       type: object

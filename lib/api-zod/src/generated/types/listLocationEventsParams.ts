@@ -5,9 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { TimeEntry } from "./timeEntry";
 
-export type ListTimeEntries200 = {
-  entries: TimeEntry[];
-  total: number;
+export type ListLocationEventsParams = {
+  date?: string;
+  limit?: number;
 };

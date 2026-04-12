@@ -1,271 +1,233 @@
 import React, { useState } from "react";
-import { format, parseISO, differenceInMinutes } from "date-fns";
-import { Calendar, Clock, Edit2, FileText, ChevronDown, Check, Trash2, X, PlusCircle } from "lucide-react";
-import { useListTimeEntries, getListTimeEntriesQueryKey, useUpdateTimeEntry, useDeleteTimeEntry } from "@workspace/api-client-react";
+import { format, parseISO } from "date-fns";
+import { Calendar, LogIn, LogOut, ChevronDown, ChevronUp, Trash2, Clock } from "lucide-react";
+import {
+  useGetHistorySummary,
+  getGetHistorySummaryQueryKey,
+  useDeleteLocationEvent,
+  getGetTodayEventsQueryKey,
+  getGetWeeklySummaryQueryKey,
+  getGetTotalsQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-function formatDuration(minutes: number | null) {
-  if (minutes === null) return "In progress";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
+function formatMinutes(mins: number | null | undefined): string {
+  if (mins === null || mins === undefined) return "In progress";
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function formatTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return format(new Date(iso), "h:mm a");
 }
 
 export default function History() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [editingEntry, setEditingEntry] = useState<number | null>(null);
-  const [editNotes, setEditNotes] = useState("");
-  const [editClockOut, setEditClockOut] = useState("");
-  const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [deletingEvent, setDeletingEvent] = useState<{ id: number; type: string } | null>(null);
 
-  const { data, isLoading } = useListTimeEntries({ limit: 100 }, { 
-    query: { queryKey: getListTimeEntriesQueryKey({ limit: 100 }) } 
-  });
-  
-  const updateEntry = useUpdateTimeEntry();
-  const deleteEntry = useDeleteTimeEntry();
+  const { data, isLoading } = useGetHistorySummary(
+    { limit: 60 },
+    { query: { queryKey: getGetHistorySummaryQueryKey({ limit: 60 }) } }
+  );
 
-  const handleEditClick = (entry: any) => {
-    setEditingEntry(entry.id);
-    setEditNotes(entry.notes || "");
-    if (!entry.clockOut) {
-      setEditClockOut(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
-    }
-  };
+  const deleteEvent = useDeleteLocationEvent();
 
-  const handleSaveEdit = async () => {
-    if (!editingEntry) return;
-    
-    try {
-      const entry = data?.entries.find(e => e.id === editingEntry);
-      
-      await updateEntry.mutateAsync({
-        id: editingEntry,
-        data: {
-          notes: editNotes,
-          clockOut: entry && !entry.clockOut && editClockOut ? new Date(editClockOut).toISOString() : undefined
-        }
-      });
-      
-      toast({ title: "Entry updated" });
-      setEditingEntry(null);
-      queryClient.invalidateQueries({ queryKey: getListTimeEntriesQueryKey({ limit: 100 }) });
-    } catch (err) {
-      toast({ title: "Failed to update", variant: "destructive" });
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteEntry.mutateAsync({ id });
-      toast({ title: "Entry deleted" });
-      setIsDeleting(null);
-      queryClient.invalidateQueries({ queryKey: getListTimeEntriesQueryKey({ limit: 100 }) });
-    } catch (err) {
-      toast({ title: "Failed to delete", variant: "destructive" });
-    }
-  };
-
-  // Group entries by date
-  const groupedEntries = React.useMemo(() => {
-    if (!data?.entries) return {};
-    
-    const grouped: Record<string, typeof data.entries> = {};
-    data.entries.forEach(entry => {
-      const dateStr = format(parseISO(entry.clockIn), 'yyyy-MM-dd');
-      if (!grouped[dateStr]) grouped[dateStr] = [];
-      grouped[dateStr].push(entry);
+  const toggleDay = (date: string) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
     });
-    
-    return grouped;
-  }, [data?.entries]);
+  };
 
-  const dates = Object.keys(groupedEntries).sort((a, b) => b.localeCompare(a));
+  const handleDelete = async () => {
+    if (!deletingEvent) return;
+    try {
+      await deleteEvent.mutateAsync({ id: deletingEvent.id });
+      toast({ title: "Event deleted" });
+      queryClient.invalidateQueries({ queryKey: getGetHistorySummaryQueryKey({ limit: 60 }) });
+      queryClient.invalidateQueries({ queryKey: getGetTodayEventsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetWeeklySummaryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetTotalsQueryKey() });
+    } catch {
+      toast({ title: "Failed to delete", variant: "destructive" });
+    } finally {
+      setDeletingEvent(null);
+    }
+  };
+
+  const days = data?.days ?? [];
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-serif text-primary tracking-tight">History</h1>
-          <p className="text-muted-foreground">
-            A complete record of your tracked time.
-          </p>
-        </div>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-serif text-primary tracking-tight">History</h1>
+        <p className="text-muted-foreground">All arrivals and departures, day by day.</p>
       </div>
 
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-6 w-32 mb-4" />
-                <Skeleton className="h-16 w-full" />
+              <CardContent className="p-6 space-y-3">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-10 w-full" />
               </CardContent>
             </Card>
           ))}
         </div>
-      ) : dates.length === 0 ? (
+      ) : days.length === 0 ? (
         <Card className="border-dashed border-2 bg-muted/30">
           <CardContent className="p-12 flex flex-col items-center justify-center text-center space-y-4">
             <div className="bg-primary/10 p-4 rounded-full text-primary">
               <Calendar className="w-8 h-8" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-medium text-foreground">No entries yet</h3>
-              <p className="text-muted-foreground">Clock in to create your first time entry.</p>
+              <h3 className="text-xl font-medium text-foreground">No history yet</h3>
+              <p className="text-muted-foreground">
+                Arrivals and departures will appear here once tracking starts.
+              </p>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          {dates.map((dateStr) => {
-            const dayEntries = groupedEntries[dateStr];
-            const dateObj = parseISO(dateStr);
-            const totalMins = dayEntries.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
-            
+        <div className="space-y-4">
+          {days.map((day, i) => {
+            const dateObj = parseISO(day.date);
+            const isExpanded = expandedDays.has(day.date);
+            const isToday = day.date === format(new Date(), "yyyy-MM-dd");
+
             return (
-              <div key={dateStr} className="space-y-3 animate-in slide-in-from-bottom-4 duration-500 fade-in fill-mode-both" style={{ animationDelay: `${dates.indexOf(dateStr) * 50}ms` }}>
-                <div className="flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur py-2 z-10">
-                  <h2 className="text-lg font-serif font-medium text-foreground">
-                    {format(dateObj, "EEEE, MMMM d")}
-                  </h2>
-                  <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    {formatDuration(totalMins)}
-                  </span>
-                </div>
-                
-                <div className="space-y-3 pl-2 border-l-2 border-border/50">
-                  {dayEntries.map((entry) => (
-                    <Card key={entry.id} className={`shadow-sm transition-all hover:shadow-md hover:border-primary/20 ${!entry.clockOut ? 'border-primary/40 bg-primary/5' : ''}`}>
-                      <CardContent className="p-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="flex flex-col items-center justify-center bg-muted/50 rounded-lg p-2 min-w-[80px]">
-                              <span className="text-sm font-medium text-foreground">{format(parseISO(entry.clockIn), "h:mm a")}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {entry.clockOut ? format(parseISO(entry.clockOut), "h:mm a") : "Now"}
-                              </span>
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-lg tracking-tight">
-                                  {formatDuration(entry.durationMinutes)}
-                                </span>
-                                {!entry.clockOut && (
-                                  <span className="flex h-2 w-2 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                                  </span>
-                                )}
-                              </div>
-                              {entry.notes && (
-                                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                                  <FileText className="w-3.5 h-3.5" />
-                                  {entry.notes}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 pt-3 sm:pt-0 w-full sm:w-auto justify-end">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleEditClick(entry)}
-                              className="text-muted-foreground hover:text-primary"
-                            >
-                              <Edit2 className="w-4 h-4 mr-2" />
-                              {entry.notes ? 'Edit' : 'Add Note'}
-                            </Button>
-                            
-                            <Dialog open={isDeleting === entry.id} onOpenChange={(open) => !open && setIsDeleting(null)}>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => setIsDeleting(entry.id)}
-                                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Delete Time Entry</DialogTitle>
-                                  <DialogDescription>
-                                    Are you sure you want to delete this entry? This action cannot be undone.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={() => setIsDeleting(null)}>Cancel</Button>
-                                  <Button variant="destructive" onClick={() => handleDelete(entry.id)}>Delete</Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        </div>
-                        
-                        {/* Edit inline form */}
-                        {editingEntry === entry.id && (
-                          <div className="border-t border-border p-4 bg-muted/20 space-y-4 animate-in slide-in-from-top-2">
-                            <div className="space-y-4">
-                              {!entry.clockOut && (
-                                <div className="space-y-2">
-                                  <Label>Manual Clock Out Time</Label>
-                                  <div className="flex items-center gap-2 text-sm bg-accent/30 p-2 rounded text-accent-foreground border border-accent/20">
-                                    Manual clock out is available to fix entries if you forgot to clock out.
-                                  </div>
-                                  <Input 
-                                    type="datetime-local" 
-                                    value={editClockOut} 
-                                    onChange={(e) => setEditClockOut(e.target.value)} 
-                                  />
-                                </div>
-                              )}
-                              
-                              <div className="space-y-2">
-                                <Label>Notes</Label>
-                                <Textarea 
-                                  placeholder="What did you work on?" 
-                                  value={editNotes} 
-                                  onChange={(e) => setEditNotes(e.target.value)}
-                                  className="min-h-[80px]"
-                                />
-                              </div>
-                            </div>
-                            
-                            <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => setEditingEntry(null)}>
-                                <X className="w-4 h-4 mr-2" />
-                                Cancel
-                              </Button>
-                              <Button size="sm" onClick={handleSaveEdit} disabled={updateEntry.isPending}>
-                                {updateEntry.isPending ? <Clock className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                Save Changes
-                              </Button>
-                            </div>
-                          </div>
+              <Card
+                key={day.date}
+                className="shadow-sm overflow-hidden animate-in slide-in-from-bottom-2 duration-300 fade-in fill-mode-both"
+                style={{ animationDelay: `${i * 40}ms` }}
+              >
+                <button
+                  className="w-full text-left"
+                  onClick={() => toggleDay(day.date)}
+                >
+                  <div className="flex items-center justify-between p-5 hover:bg-muted/20 transition-colors">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-semibold text-foreground">
+                          {format(dateObj, "EEEE, MMMM d")}
+                        </h2>
+                        {isToday && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">Today</span>
                         )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        {day.firstArrival && (
+                          <span>In: {formatTime(day.firstArrival)}</span>
+                        )}
+                        {day.lastDeparture && (
+                          <span>Out: {formatTime(day.lastDeparture)}</span>
+                        )}
+                        {!day.firstArrival && <span>No events</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                        day.totalMinutes
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        {formatMinutes(day.totalMinutes)}
+                      </span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t border-border/50 px-5 py-4 bg-muted/10 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    {/* Summary row */}
+                    <div className="grid grid-cols-3 gap-3 text-center text-sm mb-4">
+                      <div className="space-y-0.5">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider">First in</div>
+                        <div className="font-semibold text-foreground">{formatTime(day.firstArrival)}</div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider">Total time</div>
+                        <div className="font-semibold text-primary">{formatMinutes(day.totalMinutes)}</div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider">Last out</div>
+                        <div className="font-semibold text-foreground">{formatTime(day.lastDeparture)}</div>
+                      </div>
+                    </div>
+
+                    {/* Individual events */}
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">All events</p>
+                    <div className="space-y-2">
+                      {day.events.map((event) => (
+                        <div key={event.id} className="flex items-center gap-3 group">
+                          <div className={`p-2 rounded-full shrink-0 ${
+                            event.type === "arrival"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {event.type === "arrival"
+                              ? <LogIn className="w-3.5 h-3.5" />
+                              : <LogOut className="w-3.5 h-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-foreground capitalize">{event.type}</span>
+                            <span className="text-sm text-muted-foreground ml-2">
+                              {format(new Date(event.timestamp), "h:mm a")}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeletingEvent({ id: event.id, type: event.type })}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
             );
           })}
         </div>
       )}
+
+      <Dialog open={!!deletingEvent} onOpenChange={(open) => !open && setDeletingEvent(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this event?</DialogTitle>
+            <DialogDescription>
+              This will remove the {deletingEvent?.type} event permanently and may affect your daily total for that day.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingEvent(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteEvent.isPending}>
+              {deleteEvent.isPending ? <Clock className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
