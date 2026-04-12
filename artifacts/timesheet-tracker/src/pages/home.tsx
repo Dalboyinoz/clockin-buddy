@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { format, formatDistanceStrict } from "date-fns";
-import { MapPin, Clock, LogIn, LogOut, AlertCircle, Navigation } from "lucide-react";
+import { format } from "date-fns";
+import { Clock, LogIn, LogOut, AlertCircle, Navigation, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,6 +57,34 @@ export default function Home() {
   const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "pending">("pending");
   const [currentDistance, setCurrentDistance] = useState<number | null>(null);
   const [liveMinutes, setLiveMinutes] = useState<number | null>(null);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wakeLockRef = useRef<any>(null);
+
+  const requestWakeLock = useCallback(async () => {
+    if (!("wakeLock" in navigator)) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const lock = await (navigator as any).wakeLock.request("screen");
+      wakeLockRef.current = lock;
+      setWakeLockActive(true);
+      lock.addEventListener("release", () => setWakeLockActive(false));
+    } catch {
+      setWakeLockActive(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    requestWakeLock();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") requestWakeLock();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      wakeLockRef.current?.release();
+    };
+  }, [requestWakeLock]);
 
   const recordEvent = useCallback(
     async (type: "arrival" | "departure", lat: number, lng: number) => {
@@ -285,9 +313,17 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
-                Auto
-              </Badge>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <Badge variant="outline" className="text-xs text-muted-foreground">
+                  Auto
+                </Badge>
+                {wakeLockActive && (
+                  <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                    <Zap className="w-3 h-3" />
+                    Screen on
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
