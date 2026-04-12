@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useGetWorkLocation, getGetWorkLocationQueryKey, useSetWorkLocation, getGetWorkLocationQueryOptions } from "@workspace/api-client-react";
+import { useGetWorkLocation, getGetWorkLocationQueryKey, useSetWorkLocation } from "@workspace/api-client-react";
 import { getCurrentLocation } from "@/lib/location";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -131,7 +131,7 @@ export default function LocationSettings() {
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <FormLabel>Coordinates</FormLabel>
+                  <Label className="text-sm font-medium">Coordinates</Label>
                   <Button 
                     type="button" 
                     variant="outline" 
