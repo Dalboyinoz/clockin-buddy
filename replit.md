@@ -25,3 +25,20 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Artifacts
+
+### Work Time Tracker (`artifacts/timesheet-tracker`)
+- React + Vite frontend at preview path `/`
+- Location-based timesheet tracking app called "ClockIn"
+- Pages: Dashboard (clock in/out), History, Summary (with CSV export), Location settings
+- Deep teal color scheme
+
+### API Server (`artifacts/api-server`)
+- Express 5 backend at `/api`
+- Handles time entries, work location, and summary endpoints
+
+## Database Schema
+
+- `time_entries` — clock in/out records with duration, notes, GPS coords
+- `work_locations` — saved workplace GPS location with geofence radius

@@ -5,18 +5,34 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  CreateTimeEntryBody,
+  GetActiveEntry200,
+  GetWorkLocation200,
+  HealthStatus,
+  ListTimeEntries200,
+  ListTimeEntriesParams,
+  SetWorkLocationBody,
+  TimeEntry,
+  Totals,
+  UpdateTimeEntryBody,
+  WeeklySummary,
+  WorkLocation,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +115,817 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all time entries
+ */
+export const getListTimeEntriesUrl = (params?: ListTimeEntriesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/time-entries?${stringifiedParams}`
+    : `/api/time-entries`;
+};
+
+export const listTimeEntries = async (
+  params?: ListTimeEntriesParams,
+  options?: RequestInit,
+): Promise<ListTimeEntries200> => {
+  return customFetch<ListTimeEntries200>(getListTimeEntriesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTimeEntriesQueryKey = (params?: ListTimeEntriesParams) => {
+  return [`/api/time-entries`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTimeEntriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTimeEntries>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTimeEntriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTimeEntries>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTimeEntriesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTimeEntries>>> = ({
+    signal,
+  }) => listTimeEntries(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTimeEntries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTimeEntriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTimeEntries>>
+>;
+export type ListTimeEntriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all time entries
+ */
+
+export function useListTimeEntries<
+  TData = Awaited<ReturnType<typeof listTimeEntries>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTimeEntriesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTimeEntries>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTimeEntriesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new time entry (clock in)
+ */
+export const getCreateTimeEntryUrl = () => {
+  return `/api/time-entries`;
+};
+
+export const createTimeEntry = async (
+  createTimeEntryBody: CreateTimeEntryBody,
+  options?: RequestInit,
+): Promise<TimeEntry> => {
+  return customFetch<TimeEntry>(getCreateTimeEntryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTimeEntryBody),
+  });
+};
+
+export const getCreateTimeEntryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTimeEntry>>,
+    TError,
+    { data: BodyType<CreateTimeEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTimeEntry>>,
+  TError,
+  { data: BodyType<CreateTimeEntryBody> },
+  TContext
+> => {
+  const mutationKey = ["createTimeEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTimeEntry>>,
+    { data: BodyType<CreateTimeEntryBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTimeEntry(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTimeEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTimeEntry>>
+>;
+export type CreateTimeEntryMutationBody = BodyType<CreateTimeEntryBody>;
+export type CreateTimeEntryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new time entry (clock in)
+ */
+export const useCreateTimeEntry = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTimeEntry>>,
+    TError,
+    { data: BodyType<CreateTimeEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTimeEntry>>,
+  TError,
+  { data: BodyType<CreateTimeEntryBody> },
+  TContext
+> => {
+  return useMutation(getCreateTimeEntryMutationOptions(options));
+};
+
+/**
+ * @summary Get a time entry
+ */
+export const getGetTimeEntryUrl = (id: number) => {
+  return `/api/time-entries/${id}`;
+};
+
+export const getTimeEntry = async (
+  id: number,
+  options?: RequestInit,
+): Promise<TimeEntry> => {
+  return customFetch<TimeEntry>(getGetTimeEntryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTimeEntryQueryKey = (id: number) => {
+  return [`/api/time-entries/${id}`] as const;
+};
+
+export const getGetTimeEntryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTimeEntry>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTimeEntry>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTimeEntryQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTimeEntry>>> = ({
+    signal,
+  }) => getTimeEntry(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTimeEntry>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTimeEntryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTimeEntry>>
+>;
+export type GetTimeEntryQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a time entry
+ */
+
+export function useGetTimeEntry<
+  TData = Awaited<ReturnType<typeof getTimeEntry>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTimeEntry>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTimeEntryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a time entry (clock out)
+ */
+export const getUpdateTimeEntryUrl = (id: number) => {
+  return `/api/time-entries/${id}`;
+};
+
+export const updateTimeEntry = async (
+  id: number,
+  updateTimeEntryBody: UpdateTimeEntryBody,
+  options?: RequestInit,
+): Promise<TimeEntry> => {
+  return customFetch<TimeEntry>(getUpdateTimeEntryUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTimeEntryBody),
+  });
+};
+
+export const getUpdateTimeEntryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTimeEntry>>,
+    TError,
+    { id: number; data: BodyType<UpdateTimeEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTimeEntry>>,
+  TError,
+  { id: number; data: BodyType<UpdateTimeEntryBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTimeEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTimeEntry>>,
+    { id: number; data: BodyType<UpdateTimeEntryBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateTimeEntry(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTimeEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTimeEntry>>
+>;
+export type UpdateTimeEntryMutationBody = BodyType<UpdateTimeEntryBody>;
+export type UpdateTimeEntryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a time entry (clock out)
+ */
+export const useUpdateTimeEntry = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTimeEntry>>,
+    TError,
+    { id: number; data: BodyType<UpdateTimeEntryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTimeEntry>>,
+  TError,
+  { id: number; data: BodyType<UpdateTimeEntryBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTimeEntryMutationOptions(options));
+};
+
+/**
+ * @summary Delete a time entry
+ */
+export const getDeleteTimeEntryUrl = (id: number) => {
+  return `/api/time-entries/${id}`;
+};
+
+export const deleteTimeEntry = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTimeEntryUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTimeEntryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTimeEntry>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTimeEntry>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTimeEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTimeEntry>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTimeEntry(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTimeEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTimeEntry>>
+>;
+
+export type DeleteTimeEntryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a time entry
+ */
+export const useDeleteTimeEntry = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTimeEntry>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTimeEntry>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTimeEntryMutationOptions(options));
+};
+
+/**
+ * @summary Get the currently active (clocked-in) time entry
+ */
+export const getGetActiveEntryUrl = () => {
+  return `/api/time-entries/active`;
+};
+
+export const getActiveEntry = async (
+  options?: RequestInit,
+): Promise<GetActiveEntry200> => {
+  return customFetch<GetActiveEntry200>(getGetActiveEntryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetActiveEntryQueryKey = () => {
+  return [`/api/time-entries/active`] as const;
+};
+
+export const getGetActiveEntryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getActiveEntry>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveEntry>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetActiveEntryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getActiveEntry>>> = ({
+    signal,
+  }) => getActiveEntry({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveEntry>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetActiveEntryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getActiveEntry>>
+>;
+export type GetActiveEntryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the currently active (clocked-in) time entry
+ */
+
+export function useGetActiveEntry<
+  TData = Awaited<ReturnType<typeof getActiveEntry>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveEntry>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetActiveEntryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get current week summary
+ */
+export const getGetWeeklySummaryUrl = () => {
+  return `/api/summary/week`;
+};
+
+export const getWeeklySummary = async (
+  options?: RequestInit,
+): Promise<WeeklySummary> => {
+  return customFetch<WeeklySummary>(getGetWeeklySummaryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWeeklySummaryQueryKey = () => {
+  return [`/api/summary/week`] as const;
+};
+
+export const getGetWeeklySummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWeeklySummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWeeklySummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWeeklySummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWeeklySummary>>
+  > = ({ signal }) => getWeeklySummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWeeklySummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWeeklySummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWeeklySummary>>
+>;
+export type GetWeeklySummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current week summary
+ */
+
+export function useGetWeeklySummary<
+  TData = Awaited<ReturnType<typeof getWeeklySummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWeeklySummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWeeklySummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get total hours worked
+ */
+export const getGetTotalsUrl = () => {
+  return `/api/summary/totals`;
+};
+
+export const getTotals = async (options?: RequestInit): Promise<Totals> => {
+  return customFetch<Totals>(getGetTotalsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTotalsQueryKey = () => {
+  return [`/api/summary/totals`] as const;
+};
+
+export const getGetTotalsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTotals>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getTotals>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTotalsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTotals>>> = ({
+    signal,
+  }) => getTotals({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTotals>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTotalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTotals>>
+>;
+export type GetTotalsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get total hours worked
+ */
+
+export function useGetTotals<
+  TData = Awaited<ReturnType<typeof getTotals>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getTotals>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTotalsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the saved work location
+ */
+export const getGetWorkLocationUrl = () => {
+  return `/api/work-location`;
+};
+
+export const getWorkLocation = async (
+  options?: RequestInit,
+): Promise<GetWorkLocation200> => {
+  return customFetch<GetWorkLocation200>(getGetWorkLocationUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWorkLocationQueryKey = () => {
+  return [`/api/work-location`] as const;
+};
+
+export const getGetWorkLocationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkLocation>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkLocation>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWorkLocationQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkLocation>>> = ({
+    signal,
+  }) => getWorkLocation({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkLocation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWorkLocationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWorkLocation>>
+>;
+export type GetWorkLocationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the saved work location
+ */
+
+export function useGetWorkLocation<
+  TData = Awaited<ReturnType<typeof getWorkLocation>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkLocation>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWorkLocationQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save the work location
+ */
+export const getSetWorkLocationUrl = () => {
+  return `/api/work-location`;
+};
+
+export const setWorkLocation = async (
+  setWorkLocationBody: SetWorkLocationBody,
+  options?: RequestInit,
+): Promise<WorkLocation> => {
+  return customFetch<WorkLocation>(getSetWorkLocationUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setWorkLocationBody),
+  });
+};
+
+export const getSetWorkLocationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorkLocation>>,
+    TError,
+    { data: BodyType<SetWorkLocationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setWorkLocation>>,
+  TError,
+  { data: BodyType<SetWorkLocationBody> },
+  TContext
+> => {
+  const mutationKey = ["setWorkLocation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setWorkLocation>>,
+    { data: BodyType<SetWorkLocationBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setWorkLocation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetWorkLocationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setWorkLocation>>
+>;
+export type SetWorkLocationMutationBody = BodyType<SetWorkLocationBody>;
+export type SetWorkLocationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save the work location
+ */
+export const useSetWorkLocation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setWorkLocation>>,
+    TError,
+    { data: BodyType<SetWorkLocationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setWorkLocation>>,
+  TError,
+  { data: BodyType<SetWorkLocationBody> },
+  TContext
+> => {
+  return useMutation(getSetWorkLocationMutationOptions(options));
+};

@@ -14,3 +14,174 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary List all time entries
+ */
+export const listTimeEntriesQueryLimitDefault = 50;
+export const listTimeEntriesQueryOffsetDefault = 0;
+
+export const ListTimeEntriesQueryParams = zod.object({
+  limit: zod.coerce.number().default(listTimeEntriesQueryLimitDefault),
+  offset: zod.coerce.number().default(listTimeEntriesQueryOffsetDefault),
+});
+
+export const ListTimeEntriesResponse = zod.object({
+  entries: zod.array(
+    zod.object({
+      id: zod.number(),
+      clockIn: zod.coerce.date(),
+      clockOut: zod.coerce.date().nullable(),
+      durationMinutes: zod.number().nullable(),
+      notes: zod.string().nullable(),
+      latitude: zod.number().nullable(),
+      longitude: zod.number().nullable(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a new time entry (clock in)
+ */
+export const CreateTimeEntryBody = zod.object({
+  clockIn: zod.coerce.date(),
+  notes: zod.string().optional(),
+  latitude: zod.number().optional(),
+  longitude: zod.number().optional(),
+});
+
+/**
+ * @summary Get a time entry
+ */
+export const GetTimeEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetTimeEntryResponse = zod.object({
+  id: zod.number(),
+  clockIn: zod.coerce.date(),
+  clockOut: zod.coerce.date().nullable(),
+  durationMinutes: zod.number().nullable(),
+  notes: zod.string().nullable(),
+  latitude: zod.number().nullable(),
+  longitude: zod.number().nullable(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a time entry (clock out)
+ */
+export const UpdateTimeEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateTimeEntryBody = zod.object({
+  clockOut: zod.coerce.date().optional(),
+  notes: zod.string().optional(),
+  latitude: zod.number().optional(),
+  longitude: zod.number().optional(),
+});
+
+export const UpdateTimeEntryResponse = zod.object({
+  id: zod.number(),
+  clockIn: zod.coerce.date(),
+  clockOut: zod.coerce.date().nullable(),
+  durationMinutes: zod.number().nullable(),
+  notes: zod.string().nullable(),
+  latitude: zod.number().nullable(),
+  longitude: zod.number().nullable(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a time entry
+ */
+export const DeleteTimeEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get the currently active (clocked-in) time entry
+ */
+export const GetActiveEntryResponse = zod.object({
+  entry: zod.union([
+    zod.object({
+      id: zod.number(),
+      clockIn: zod.coerce.date(),
+      clockOut: zod.coerce.date().nullable(),
+      durationMinutes: zod.number().nullable(),
+      notes: zod.string().nullable(),
+      latitude: zod.number().nullable(),
+      longitude: zod.number().nullable(),
+      createdAt: zod.coerce.date(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary Get current week summary
+ */
+export const GetWeeklySummaryResponse = zod.object({
+  weekStart: zod.coerce.date(),
+  weekEnd: zod.coerce.date(),
+  totalMinutes: zod.number(),
+  totalHours: zod.number(),
+  daysWorked: zod.number(),
+  dailyBreakdown: zod.array(
+    zod.object({
+      date: zod.string(),
+      totalMinutes: zod.number(),
+      entries: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get total hours worked
+ */
+export const GetTotalsResponse = zod.object({
+  totalMinutes: zod.number(),
+  totalHours: zod.number(),
+  totalDays: zod.number(),
+  totalEntries: zod.number(),
+  averageHoursPerDay: zod.number(),
+});
+
+/**
+ * @summary Get the saved work location
+ */
+export const GetWorkLocationResponse = zod.object({
+  location: zod.union([
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      latitude: zod.number(),
+      longitude: zod.number(),
+      radiusMeters: zod.number(),
+      createdAt: zod.coerce.date(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary Save the work location
+ */
+export const SetWorkLocationBody = zod.object({
+  name: zod.string(),
+  latitude: zod.number(),
+  longitude: zod.number(),
+  radiusMeters: zod.number(),
+});
+
+export const SetWorkLocationResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  latitude: zod.number(),
+  longitude: zod.number(),
+  radiusMeters: zod.number(),
+  createdAt: zod.coerce.date(),
+});

@@ -8,3 +8,85 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface TimeEntry {
+  id: number;
+  clockIn: string;
+  clockOut: string | null;
+  durationMinutes: number | null;
+  notes: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  createdAt: string;
+}
+
+export interface CreateTimeEntryBody {
+  clockIn: string;
+  notes?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface UpdateTimeEntryBody {
+  clockOut?: string;
+  notes?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export type WeeklySummaryDailyBreakdownItem = {
+  date: string;
+  totalMinutes: number;
+  entries: number;
+};
+
+export interface WeeklySummary {
+  weekStart: string;
+  weekEnd: string;
+  totalMinutes: number;
+  totalHours: number;
+  daysWorked: number;
+  dailyBreakdown: WeeklySummaryDailyBreakdownItem[];
+}
+
+export interface Totals {
+  totalMinutes: number;
+  totalHours: number;
+  totalDays: number;
+  totalEntries: number;
+  averageHoursPerDay: number;
+}
+
+export interface WorkLocation {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  createdAt: string;
+}
+
+export interface SetWorkLocationBody {
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+}
+
+export type ListTimeEntriesParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListTimeEntries200 = {
+  entries: TimeEntry[];
+  total: number;
+};
+
+export type GetActiveEntry200 = {
+  entry: TimeEntry | null;
+};
+
+export type GetWorkLocation200 = {
+  location: WorkLocation | null;
+};

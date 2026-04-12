@@ -10,6 +10,13 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: timeEntries
+    description: Time entry operations
+  - name: workLocation
+    description: Work location operations
+  - name: summary
+    description: Summary and analytics
+
 paths:
   /healthz:
     get:
@@ -24,6 +31,194 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /time-entries:
+    get:
+      operationId: listTimeEntries
+      tags: [timeEntries]
+      summary: List all time entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of time entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TimeEntry"
+                  total:
+                    type: integer
+                required: [entries, total]
+    post:
+      operationId: createTimeEntry
+      tags: [timeEntries]
+      summary: Create a new time entry (clock in)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTimeEntryBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
+
+  /time-entries/{id}:
+    get:
+      operationId: getTimeEntry
+      tags: [timeEntries]
+      summary: Get a time entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Time entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTimeEntry
+      tags: [timeEntries]
+      summary: Update a time entry (clock out)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTimeEntryBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeEntry"
+    delete:
+      operationId: deleteTimeEntry
+      tags: [timeEntries]
+      summary: Delete a time entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /time-entries/active:
+    get:
+      operationId: getActiveEntry
+      tags: [timeEntries]
+      summary: Get the currently active (clocked-in) time entry
+      responses:
+        "200":
+          description: Active entry or null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    oneOf:
+                      - $ref: "#/components/schemas/TimeEntry"
+                      - type: "null"
+                required: [entry]
+
+  /summary/week:
+    get:
+      operationId: getWeeklySummary
+      tags: [summary]
+      summary: Get current week summary
+      responses:
+        "200":
+          description: Weekly summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySummary"
+
+  /summary/totals:
+    get:
+      operationId: getTotals
+      tags: [summary]
+      summary: Get total hours worked
+      responses:
+        "200":
+          description: Totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Totals"
+
+  /work-location:
+    get:
+      operationId: getWorkLocation
+      tags: [workLocation]
+      summary: Get the saved work location
+      responses:
+        "200":
+          description: Work location
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    oneOf:
+                      - $ref: "#/components/schemas/WorkLocation"
+                      - type: "null"
+                required: [location]
+    put:
+      operationId: setWorkLocation
+      tags: [workLocation]
+      summary: Save the work location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetWorkLocationBody"
+      responses:
+        "200":
+          description: Updated work location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkLocation"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +229,133 @@ components:
       required:
         - status
 
+    TimeEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        clockIn:
+          type: string
+          format: date-time
+        clockOut:
+          type: string
+          format: date-time
+          nullable: true
+        durationMinutes:
+          type: number
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, clockIn, clockOut, durationMinutes, notes, latitude, longitude, createdAt]
+
+    CreateTimeEntryBody:
+      type: object
+      properties:
+        clockIn:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required: [clockIn]
+
+    UpdateTimeEntryBody:
+      type: object
+      properties:
+        clockOut:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+
+    WeeklySummary:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date-time
+        weekEnd:
+          type: string
+          format: date-time
+        totalMinutes:
+          type: number
+        totalHours:
+          type: number
+        daysWorked:
+          type: integer
+        dailyBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              totalMinutes:
+                type: number
+              entries:
+                type: integer
+            required: [date, totalMinutes, entries]
+      required: [weekStart, weekEnd, totalMinutes, totalHours, daysWorked, dailyBreakdown]
+
+    Totals:
+      type: object
+      properties:
+        totalMinutes:
+          type: number
+        totalHours:
+          type: number
+        totalDays:
+          type: integer
+        totalEntries:
+          type: integer
+        averageHoursPerDay:
+          type: number
+      required: [totalMinutes, totalHours, totalDays, totalEntries, averageHoursPerDay]
+
+    WorkLocation:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        radiusMeters:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, latitude, longitude, radiusMeters, createdAt]
+
+    SetWorkLocationBody:
+      type: object
+      properties:
+        name:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        radiusMeters:
+          type: number
+      required: [name, latitude, longitude, radiusMeters]
