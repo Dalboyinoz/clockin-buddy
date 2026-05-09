@@ -1,0 +1,31 @@
+uploads = []
+
+[[generated]]
+id = "g9CWfXSqdcRqVbNnHqx0n"
+uri = "file://artifacts/timesheet-tracker/public/icon-512.png"
+type = "image"
+title = "clockin buddy app icon"
+
+[[generated]]
+id = "MXIdraoiUSMKXkgPr6-z3"
+uri = "file://artifacts/timesheet-tracker/public/feature-graphic.png"
+type = "image"
+title = "clockin buddy feature graphic clean"
+
+[[outputs]]
+id = "bhRsj7Lx7D4dw9cUFwS_H"
+uri = "file://artifacts/timesheet-tracker/public/icon-512.png"
+type = "image"
+title = "App Icon — 512×512 (Play Store high-res icon)"
+
+[[outputs]]
+id = "iyTr9wmgPTJ7DB7Dvc8Ei"
+uri = "file://artifacts/timesheet-tracker/public/icon-192.png"
+type = "image"
+title = "App Icon — 192×192 (PWA / home screen)"
+
+[[outputs]]
+id = "AYZB5tMgfa2rJKg1d3__A"
+uri = "file://artifacts/timesheet-tracker/public/feature-graphic-1024x500.png"
+type = "image"
+title = "Feature Graphic — 1024×500 (Play Store banner)"
