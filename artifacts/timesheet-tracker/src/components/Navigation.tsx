@@ -46,7 +46,7 @@ export function Navigation() {
             <div className="bg-primary text-primary-foreground p-1.5 rounded-lg shadow-sm">
               <Clock className="w-5 h-5" />
             </div>
-            ClockIn
+            ClockIn Buddy
           </div>
         </div>
         <div className="px-4 flex-1">

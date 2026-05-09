@@ -109,7 +109,7 @@ export default function LocationSettings() {
         <CardHeader>
           <CardTitle className="text-xl font-medium">Location Settings</CardTitle>
           <CardDescription>
-            ClockIn will suggest clocking in/out based on your proximity to this area.
+            ClockIn Buddy will suggest clocking in/out based on your proximity to this area.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -208,7 +208,7 @@ export default function LocationSettings() {
                       />
                     </FormControl>
                     <FormDescription>
-                      How close you need to be for ClockIn to register your arrival.
+                      How close you need to be for ClockIn Buddy to register your arrival.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -242,7 +242,7 @@ export default function LocationSettings() {
           <div>
             <h3 className="font-medium text-foreground mb-1">Active Monitoring</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              ClockIn is actively checking your distance to <strong className="text-primary">{workLocationData.location.name}</strong>. 
+              ClockIn Buddy is actively checking your distance to <strong className="text-primary">{workLocationData.location.name}</strong>. 
               The dashboard will show your status when you're within {workLocationData.location.radiusMeters}m of the location.
             </p>
           </div>

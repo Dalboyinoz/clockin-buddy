@@ -1,5 +1,5 @@
 {
-  "name": "ClockIn",
+  "name": "ClockIn Buddy",
   "short_name": "ClockIn",
   "description": "Automatic location-based work time tracker",
   "start_url": "/",

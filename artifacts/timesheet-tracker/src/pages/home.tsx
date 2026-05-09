@@ -292,7 +292,7 @@ export default function Home() {
               <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
               <div>
                 <p className="font-medium text-foreground">Location access required</p>
-                <p className="text-muted-foreground text-xs mt-0.5">Allow location access in your browser so ClockIn can detect arrivals and departures automatically.</p>
+                <p className="text-muted-foreground text-xs mt-0.5">Allow location access in your browser so ClockIn Buddy can detect arrivals and departures automatically.</p>
               </div>
             </div>
           ) : (
