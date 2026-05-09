@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { Clock, LogIn, LogOut, AlertCircle, Navigation, Zap } from "lucide-react";
+import { KeepAwake } from "@capacitor-community/keep-awake";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,33 +59,34 @@ export default function Home() {
   const [currentDistance, setCurrentDistance] = useState<number | null>(null);
   const [liveMinutes, setLiveMinutes] = useState<number | null>(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const wakeLockRef = useRef<any>(null);
-
-  const requestWakeLock = useCallback(async () => {
-    if (!("wakeLock" in navigator)) return;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lock = await (navigator as any).wakeLock.request("screen");
-      wakeLockRef.current = lock;
-      setWakeLockActive(true);
-      lock.addEventListener("release", () => setWakeLockActive(false));
-    } catch {
-      setWakeLockActive(false);
-    }
-  }, []);
 
   useEffect(() => {
-    requestWakeLock();
+    let released = false;
+
+    const acquireWakeLock = async () => {
+      try {
+        const { isSupported } = await KeepAwake.isSupported();
+        if (!isSupported) return;
+        await KeepAwake.keepAwake();
+        if (!released) setWakeLockActive(true);
+      } catch {
+        // silently ignore — non-critical
+      }
+    };
+
+    acquireWakeLock();
+
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") requestWakeLock();
+      if (document.visibilityState === "visible") acquireWakeLock();
     };
     document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
+      released = true;
       document.removeEventListener("visibilitychange", handleVisibility);
-      wakeLockRef.current?.release();
+      KeepAwake.allowSleep().catch(() => {});
     };
-  }, [requestWakeLock]);
+  }, []);
 
   const recordEvent = useCallback(
     async (type: "arrival" | "departure", lat: number, lng: number) => {
