@@ -5,6 +5,7 @@ import { ClerkProvider, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
 import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -105,6 +106,35 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+// Handles App Links (deep links) from Android when the OAuth callback URL is intercepted.
+// When Google OAuth completes, Android fires appUrlOpen with the callback URL.
+// We extract the path and navigate the Wouter router to it so Clerk can process the callback.
+function CapacitorDeepLinkHandler() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listenerPromise = CapApp.addListener("appUrlOpen", (event) => {
+      try {
+        const url = new URL(event.url);
+        const path = url.pathname + url.search + url.hash;
+        if (path && path !== "/") {
+          setLocation(path);
+        }
+      } catch {
+        // ignore malformed URLs
+      }
+    });
+
+    return () => {
+      listenerPromise.then((l) => l.remove());
+    };
+  }, [setLocation]);
+
+  return null;
+}
+
 // In Capacitor WebView, session cookies aren't sent with fetch requests.
 // This bridge grabs Clerk's JWT and attaches it as a Bearer token on every API call.
 function CapacitorAuthBridge() {
@@ -145,18 +175,21 @@ function AppRoutes() {
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/sign-in/*?" component={SignInPage} />
-      <Route path="/sign-up/*?" component={SignUpPage} />
-      <Route>
-        <Show when="signed-in">
-          <AppRoutes />
-        </Show>
-        <Show when="signed-out">
-          <Redirect to="/sign-in" />
-        </Show>
-      </Route>
-    </Switch>
+    <>
+      <CapacitorDeepLinkHandler />
+      <Switch>
+        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/sign-up/*?" component={SignUpPage} />
+        <Route>
+          <Show when="signed-in">
+            <AppRoutes />
+          </Show>
+          <Show when="signed-out">
+            <Redirect to="/sign-in" />
+          </Show>
+        </Route>
+      </Switch>
+    </>
   );
 }
 

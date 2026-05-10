@@ -410,6 +410,9 @@ importers:
 
   artifacts/timesheet-tracker:
     dependencies:
+      '@capacitor/app':
+        specifier: ^8.1.0
+        version: 8.1.0(@capacitor/core@8.3.3)
       '@clerk/react':
         specifier: ^6.6.2
         version: 6.6.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -772,6 +775,11 @@ packages:
     resolution: {integrity: sha512-Km7/voqtWVrN+qDHktoYb7DIliW+eakglH4jyT7C0dxODW/gDrMi19yC0ATNM2+rtaj3e2i46pgZ3A5UCa+44Q==}
     peerDependencies:
       '@capacitor/core': ^8.3.0
+
+  '@capacitor/app@8.1.0':
+    resolution: {integrity: sha512-MlmttTOWHDedr/G4SrhNRxsXMqY+R75S4MM4eIgzsgCzOYhb/MpCkA5Q3nuOCfL1oHm26xjUzqZ5aupbOwdfYg==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   '@capacitor/cli@8.3.3':
     resolution: {integrity: sha512-FHebL02KEyU5vs+Os5s1yZuE8QT3FzxoO4nZLywGk7Ny957E6gOujKouGKsnKYq01eAWWJGGV/Fv04rY27tSsw==}
@@ -3851,6 +3859,10 @@ snapshots:
       '@capacitor/core': 8.3.3
 
   '@capacitor/android@8.3.3(@capacitor/core@8.3.3)':
+    dependencies:
+      '@capacitor/core': 8.3.3
+
+  '@capacitor/app@8.1.0(@capacitor/core@8.3.3)':
     dependencies:
       '@capacitor/core': 8.3.3
 
