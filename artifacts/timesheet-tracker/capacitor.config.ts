@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: "ClockIn Buddy",
   webDir: "dist/public",
   server: {
-    androidScheme: "https",
+    url: "https://time-tracker-buddy.replit.app",
+    cleartext: false,
   },
 };
 
