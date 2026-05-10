@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, locationEventsTable } from "@workspace/db";
-import { gte, lte, and, desc } from "drizzle-orm";
+import { gte, lte, and, desc, eq } from "drizzle-orm";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -28,7 +29,8 @@ function computeDayMinutes(events: { type: string; timestamp: Date }[]): number 
   return (last.getTime() - first.getTime()) / 60000;
 }
 
-router.get("/summary/week", async (req, res): Promise<void> => {
+router.get("/summary/week", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const { weekStart, weekEnd } = weekBounds();
 
   const events = await db
@@ -36,6 +38,7 @@ router.get("/summary/week", async (req, res): Promise<void> => {
     .from(locationEventsTable)
     .where(
       and(
+        eq(locationEventsTable.userId, userId),
         gte(locationEventsTable.timestamp, weekStart),
         lte(locationEventsTable.timestamp, weekEnd)
       )
@@ -66,10 +69,12 @@ router.get("/summary/week", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/summary/totals", async (req, res): Promise<void> => {
+router.get("/summary/totals", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const events = await db
     .select()
     .from(locationEventsTable)
+    .where(eq(locationEventsTable.userId, userId))
     .orderBy(locationEventsTable.timestamp);
 
   const dailyMap: Record<string, typeof events> = {};
@@ -103,13 +108,15 @@ router.get("/summary/totals", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/summary/history", async (req, res): Promise<void> => {
+router.get("/summary/history", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : 30;
   const limit = isNaN(rawLimit) ? 30 : rawLimit;
 
   const events = await db
     .select()
     .from(locationEventsTable)
+    .where(eq(locationEventsTable.userId, userId))
     .orderBy(desc(locationEventsTable.timestamp))
     .limit(limit * 10);
 

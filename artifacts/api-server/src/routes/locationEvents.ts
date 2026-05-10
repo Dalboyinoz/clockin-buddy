@@ -6,6 +6,7 @@ import {
   DeleteLocationEventParams,
   ListLocationEventsQueryParams,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -22,7 +23,8 @@ function todayBoundsLocal() {
   return { start, end };
 }
 
-router.get("/location-events/today", async (req, res): Promise<void> => {
+router.get("/location-events/today", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const { start, end } = todayBoundsLocal();
 
   const events = await db
@@ -30,6 +32,7 @@ router.get("/location-events/today", async (req, res): Promise<void> => {
     .from(locationEventsTable)
     .where(
       and(
+        eq(locationEventsTable.userId, userId),
         gte(locationEventsTable.timestamp, start),
         lte(locationEventsTable.timestamp, end)
       )
@@ -59,7 +62,8 @@ router.get("/location-events/today", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/location-events", async (req, res): Promise<void> => {
+router.get("/location-events", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const parsed = ListLocationEventsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -76,6 +80,7 @@ router.get("/location-events", async (req, res): Promise<void> => {
       .from(locationEventsTable)
       .where(
         and(
+          eq(locationEventsTable.userId, userId),
           gte(locationEventsTable.timestamp, start),
           lte(locationEventsTable.timestamp, end)
         )
@@ -86,6 +91,7 @@ router.get("/location-events", async (req, res): Promise<void> => {
     events = await db
       .select()
       .from(locationEventsTable)
+      .where(eq(locationEventsTable.userId, userId))
       .orderBy(desc(locationEventsTable.timestamp))
       .limit(limit);
   }
@@ -93,7 +99,8 @@ router.get("/location-events", async (req, res): Promise<void> => {
   res.json({ events });
 });
 
-router.post("/location-events", async (req, res): Promise<void> => {
+router.post("/location-events", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const parsed = CreateLocationEventBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -103,6 +110,7 @@ router.post("/location-events", async (req, res): Promise<void> => {
   const [event] = await db
     .insert(locationEventsTable)
     .values({
+      userId,
       type: parsed.data.type,
       timestamp: new Date(parsed.data.timestamp),
       latitude: parsed.data.latitude ?? null,
@@ -113,7 +121,8 @@ router.post("/location-events", async (req, res): Promise<void> => {
   res.status(201).json(event);
 });
 
-router.delete("/location-events/:id", async (req, res): Promise<void> => {
+router.delete("/location-events/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as any).userId as string;
   const params = DeleteLocationEventParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -122,7 +131,12 @@ router.delete("/location-events/:id", async (req, res): Promise<void> => {
 
   const [event] = await db
     .delete(locationEventsTable)
-    .where(eq(locationEventsTable.id, params.data.id))
+    .where(
+      and(
+        eq(locationEventsTable.id, params.data.id),
+        eq(locationEventsTable.userId, userId)
+      )
+    )
     .returning();
 
   if (!event) {

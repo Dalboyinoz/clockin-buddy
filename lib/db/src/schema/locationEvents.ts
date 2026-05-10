@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const locationEventsTable = pgTable("location_events", {
   id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
   type: text("type").notNull(), // 'arrival' | 'departure'
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   latitude: real("latitude"),

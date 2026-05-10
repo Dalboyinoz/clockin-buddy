@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const workLocationsTable = pgTable("work_locations", {
   id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
   name: text("name").notNull(),
   latitude: real("latitude").notNull(),
   longitude: real("longitude").notNull(),

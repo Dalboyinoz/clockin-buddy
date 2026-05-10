@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Clock, History, MapPin, BarChart2 } from "lucide-react";
+import { Clock, History, MapPin, BarChart2, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useClerk, useUser } from "@clerk/react";
 
 const navItems = [
   { href: "/", label: "Clock In", icon: Clock },
@@ -11,6 +12,8 @@ const navItems = [
 
 export function Navigation() {
   const [location] = useLocation();
+  const { signOut } = useClerk();
+  const { user } = useUser();
 
   return (
     <>
@@ -71,6 +74,33 @@ export function Navigation() {
               );
             })}
           </ul>
+        </div>
+        {/* User account section */}
+        <div className="p-4 border-t border-border">
+          <div className="flex items-center gap-3 mb-2 px-1">
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt="avatar" className="w-7 h-7 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
+                {user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "?"}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">
+                {user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress ?? "Account"}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user?.emailAddresses?.[0]?.emailAddress ?? ""}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => signOut()}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </button>
         </div>
       </nav>
     </>
