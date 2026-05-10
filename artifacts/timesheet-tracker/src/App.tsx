@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { ClerkProvider, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, Show, useClerk, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
+import { Capacitor } from "@capacitor/core";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navigation } from "@/components/Navigation";
@@ -103,9 +105,30 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+// In Capacitor WebView, session cookies aren't sent with fetch requests.
+// This bridge grabs Clerk's JWT and attaches it as a Bearer token on every API call.
+function CapacitorAuthBridge() {
+  const { getToken, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (isSignedIn) {
+      setAuthTokenGetter(() => getToken());
+    } else {
+      setAuthTokenGetter(null);
+    }
+    return () => {
+      if (Capacitor.isNativePlatform()) setAuthTokenGetter(null);
+    };
+  }, [getToken, isSignedIn]);
+
+  return null;
+}
+
 function AppRoutes() {
   return (
     <div className="flex flex-col min-h-[100dvh] pb-16 md:pb-0 md:pl-64">
+      <CapacitorAuthBridge />
       <Navigation />
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
         <Switch>
