@@ -110,8 +110,6 @@ function ClerkQueryClientCacheInvalidator() {
 // When Google OAuth completes, Android fires appUrlOpen with the callback URL.
 // We extract the path and navigate the Wouter router to it so Clerk can process the callback.
 function CapacitorDeepLinkHandler() {
-  const [, setLocation] = useLocation();
-
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
@@ -120,7 +118,10 @@ function CapacitorDeepLinkHandler() {
         const url = new URL(event.url);
         const path = url.pathname + url.search + url.hash;
         if (path && path !== "/") {
-          setLocation(path);
+          // Use a full page navigation so Clerk can process the OAuth
+          // callback with a fresh mount — setLocation alone doesn't
+          // re-trigger Clerk's callback handler.
+          window.location.href = path;
         }
       } catch {
         // ignore malformed URLs
@@ -130,7 +131,7 @@ function CapacitorDeepLinkHandler() {
     return () => {
       listenerPromise.then((l) => l.remove());
     };
-  }, [setLocation]);
+  }, []);
 
   return null;
 }
