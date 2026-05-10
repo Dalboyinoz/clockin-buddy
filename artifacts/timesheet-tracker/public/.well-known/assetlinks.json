@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.clockin.timesheet",
-    "sha256_cert_fingerprints": ["REPLACE_WITH_SHA256_FROM_PLAY_CONSOLE"]
+    "sha256_cert_fingerprints": ["93:7A:3B:A3:8D:47:4E:4C:C2:78:3F:B2:34:29:3F:F0:18:38:A4:A4:49:4C:6C:C2:C3:CA:A3:D5:6F:15:34:7F"]
   }
 }]
