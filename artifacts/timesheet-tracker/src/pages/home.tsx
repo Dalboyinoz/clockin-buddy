@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { Clock, LogIn, LogOut, AlertCircle, Navigation, Zap } from "lucide-react";
 import { KeepAwake } from "@capacitor-community/keep-awake";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -60,6 +62,12 @@ export default function Home() {
   const [liveMinutes, setLiveMinutes] = useState<number | null>(null);
   const [wakeLockActive, setWakeLockActive] = useState(false);
 
+  // Request notification permission once on mount (native only)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    LocalNotifications.requestPermissions().catch(() => {});
+  }, []);
+
   useEffect(() => {
     let released = false;
 
@@ -104,6 +112,22 @@ export default function Home() {
             ? "Your arrival has been recorded automatically."
             : "Your departure has been recorded automatically.",
         });
+        // Send a local notification so the user knows tracking fired
+        if (Capacitor.isNativePlatform()) {
+          const now = new Date();
+          const timeStr = format(now, "h:mm a");
+          await LocalNotifications.schedule({
+            notifications: [{
+              id: Date.now(),
+              title: type === "arrival" ? "Clocked in" : "Clocked out",
+              body: type === "arrival"
+                ? `Arrival recorded at ${timeStr}`
+                : `Departure recorded at ${timeStr}`,
+              smallIcon: "ic_stat_icon_config_sample",
+              sound: undefined,
+            }],
+          }).catch(() => {});
+        }
       } catch {
         // silently fail — will retry on next position update
       } finally {

@@ -81,6 +81,7 @@
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
+    "@capacitor/local-notifications": "^8.1.0",
     "@clerk/react": "^6.6.2",
     "@clerk/themes": "^2.4.57"
   }
