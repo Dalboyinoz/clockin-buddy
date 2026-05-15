@@ -410,6 +410,9 @@ importers:
 
   artifacts/timesheet-tracker:
     dependencies:
+      '@capacitor-community/background-geolocation':
+        specifier: ^1.2.26
+        version: 1.2.26(@capacitor/core@8.3.3)
       '@capacitor/app':
         specifier: ^8.1.0
         version: 8.1.0(@capacitor/core@8.3.3)
@@ -768,6 +771,11 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@capacitor-community/background-geolocation@1.2.26':
+    resolution: {integrity: sha512-kuva8VQ6zM+uIKgHUJTP87IYbmGKhX7DZw62JYfGZ888h4Xr5zeN+UTR6KBRHQVrGBpzSfbv+6/HQVuHYa7W5A==}
+    peerDependencies:
+      '@capacitor/core': '>=3.0.0'
 
   '@capacitor-community/keep-awake@8.0.1':
     resolution: {integrity: sha512-wTI5A6FWl5gWoMduzJ5euuJ1P73SO+rea0jV6vNdmz5TLbwIDhufelFe/GowNvU9gog6kDYbFhJ2pOp9ua1f3w==}
@@ -3861,6 +3869,10 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
+
+  '@capacitor-community/background-geolocation@1.2.26(@capacitor/core@8.3.3)':
+    dependencies:
+      '@capacitor/core': 8.3.3
 
   '@capacitor-community/keep-awake@8.0.1(@capacitor/core@8.3.3)':
     dependencies:

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { Clock, LogIn, LogOut, AlertCircle, Navigation, Zap } from "lucide-react";
 import { KeepAwake } from "@capacitor-community/keep-awake";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import type { BackgroundGeolocationPlugin, Location as BGLocation, CallbackError } from "@capacitor-community/background-geolocation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,8 @@ import {
 import { getDistance } from "@/lib/location";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+
+const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 
 type GeofenceState = "inside" | "outside" | "unknown";
 
@@ -139,14 +142,13 @@ export default function Home() {
 
   useEffect(() => {
     const loc = workLocationData?.location;
-    if (!loc || !navigator.geolocation) {
+    if (!loc) {
       setLocationPermission("denied");
       return;
     }
 
-    const handlePosition = (pos: GeolocationPosition) => {
+    const handleCoords = (latitude: number, longitude: number) => {
       setLocationPermission("granted");
-      const { latitude, longitude } = pos.coords;
       const dist = getDistance(latitude, longitude, loc.latitude, loc.longitude);
       setCurrentDistance(Math.round(dist));
       const isInside = dist <= loc.radiusMeters;
@@ -175,19 +177,47 @@ export default function Home() {
       }
     };
 
-    const handleError = () => setLocationPermission("denied");
+    let cleanupFn: (() => void) | undefined;
 
-    watchIdRef.current = navigator.geolocation.watchPosition(handlePosition, handleError, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 30000,
-    });
+    if (Capacitor.isNativePlatform()) {
+      // Native: use background geolocation foreground service so GPS keeps
+      // running when the app is minimised.
+      let watcherId: string | null = null;
+      BackgroundGeolocation.addWatcher(
+        {
+          backgroundMessage: "ClockIn Buddy is monitoring your location to detect work arrivals and departures.",
+          backgroundTitle: "Work location tracking active",
+          requestPermissions: true,
+          stale: false,
+          distanceFilter: 15,
+        },
+        (location: BGLocation | undefined, error: CallbackError | undefined) => {
+          if (error) {
+            if (error.code === "NOT_AUTHORIZED") setLocationPermission("denied");
+            return;
+          }
+          if (location) handleCoords(location.latitude, location.longitude);
+        }
+      ).then((id: string) => { watcherId = id; });
 
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+      cleanupFn = () => {
+        if (watcherId) BackgroundGeolocation.removeWatcher({ id: watcherId });
+      };
+    } else {
+      // Web fallback: use browser geolocation API.
+      if (!navigator.geolocation) {
+        setLocationPermission("denied");
+        return;
       }
-    };
+      const id = navigator.geolocation.watchPosition(
+        (pos) => handleCoords(pos.coords.latitude, pos.coords.longitude),
+        () => setLocationPermission("denied"),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      );
+      cleanupFn = () => navigator.geolocation.clearWatch(id);
+    }
+
+    return () => cleanupFn?.();
   }, [workLocationData, recordEvent]);
 
   // Live running timer
