@@ -196,7 +196,7 @@ export default function Home() {
       } else {
         if (prevState === "inside") {
           outsideCountRef.current += 1;
-          if (outsideCountRef.current >= 2) {
+          if (outsideCountRef.current >= 3) {
             geofenceStateRef.current = "outside";
             localStorage.setItem("geofence_state", "outside");
             outsideCountRef.current = 0;

@@ -16,6 +16,17 @@ public class MainActivity extends BridgeActivity {
         requestBatteryOptimizationExemption();
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Prevent Android from suspending JavaScript execution when the app is
+        // minimised. Without this, the background geolocation callbacks reach
+        // the native layer but JS never wakes up to process them.
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().onResume();
+        }
+    }
+
     private void requestBatteryOptimizationExemption() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
@@ -25,7 +36,6 @@ public class MainActivity extends BridgeActivity {
                 try {
                     startActivity(intent);
                 } catch (Exception e) {
-                    // If the intent fails (some OEMs block it), open general battery settings
                     try {
                         startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
                     } catch (Exception ignored) {}
