@@ -55,6 +55,8 @@ import { getDistance } from "@/lib/location";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
+const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes between same-type events
+
 type GeofenceState = "inside" | "outside" | "unknown";
 
 function formatMinutes(mins: number | null | undefined): string {
@@ -91,6 +93,11 @@ export default function Home() {
   const outsideCountRef = useRef(0);
   const watchIdRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
+  // Cooldown: prevent the same event type firing more than once per 5 minutes
+  const lastEventRef = useRef<{ type: string; time: number }>({
+    type: localStorage.getItem("last_event_type") ?? "",
+    time: Number(localStorage.getItem("last_event_time") ?? 0),
+  });
 
   const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "pending">("pending");
   const [currentDistance, setCurrentDistance] = useState<number | null>(null);
@@ -134,7 +141,13 @@ export default function Home() {
   const recordEvent = useCallback(
     async (type: "arrival" | "departure", lat: number, lng: number) => {
       if (recordingRef.current) return;
+      // Skip if the same event type fired within the cooldown window
+      const now = Date.now();
+      if (lastEventRef.current.type === type && now - lastEventRef.current.time < COOLDOWN_MS) return;
       recordingRef.current = true;
+      lastEventRef.current = { type, time: now };
+      localStorage.setItem("last_event_type", type);
+      localStorage.setItem("last_event_time", String(now));
       try {
         await createEvent.mutateAsync({
           data: { type, timestamp: new Date().toISOString(), latitude: lat, longitude: lng },
