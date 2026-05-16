@@ -17,7 +17,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         // Prevent Android from suspending JavaScript execution when the app is
         // minimised. Without this, the background geolocation callbacks reach
