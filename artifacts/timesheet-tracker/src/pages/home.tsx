@@ -4,7 +4,41 @@ import { Clock, LogIn, LogOut, AlertCircle, Navigation, Zap } from "lucide-react
 import { KeepAwake } from "@capacitor-community/keep-awake";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import type { BackgroundGeolocationPlugin, Location as BGLocation, CallbackError } from "@capacitor-community/background-geolocation";
+
+// Inline types for @capacitor-community/background-geolocation (native-only, no JS dist)
+interface BGLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  altitude: number | null;
+  altitudeAccuracy: number | null;
+  simulated: boolean;
+  bearing: number | null;
+  speed: number | null;
+  time: number | null;
+}
+interface CallbackError extends Error { code?: string; }
+interface BackgroundGeolocationPlugin {
+  addWatcher(
+    options: {
+      backgroundMessage?: string;
+      backgroundTitle?: string;
+      requestPermissions?: boolean;
+      stale?: boolean;
+      distanceFilter?: number;
+    },
+    callback: (position?: BGLocation, error?: CallbackError) => void
+  ): Promise<string>;
+  removeWatcher(options: { id: string }): Promise<void>;
+  openSettings(): Promise<void>;
+}
+
+// Module-level singleton — registerPlugin must only be called once
+let _bgGeo: BackgroundGeolocationPlugin | null = null;
+function getBgGeo(): BackgroundGeolocationPlugin {
+  if (!_bgGeo) _bgGeo = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
+  return _bgGeo;
+}
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,8 +54,6 @@ import {
 import { getDistance } from "@/lib/location";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-
-const BackgroundGeolocation = registerPlugin<BackgroundGeolocationPlugin>("BackgroundGeolocation");
 
 type GeofenceState = "inside" | "outside" | "unknown";
 
@@ -183,7 +215,7 @@ export default function Home() {
       // Native: use background geolocation foreground service so GPS keeps
       // running when the app is minimised.
       let watcherId: string | null = null;
-      BackgroundGeolocation.addWatcher(
+      getBgGeo().addWatcher(
         {
           backgroundMessage: "ClockIn Buddy is monitoring your location to detect work arrivals and departures.",
           backgroundTitle: "Work location tracking active",
@@ -201,7 +233,7 @@ export default function Home() {
       ).then((id: string) => { watcherId = id; });
 
       cleanupFn = () => {
-        if (watcherId) BackgroundGeolocation.removeWatcher({ id: watcherId });
+        if (watcherId) getBgGeo().removeWatcher({ id: watcherId });
       };
     } else {
       // Web fallback: use browser geolocation API.
